@@ -27,26 +27,54 @@ else
 end
 
 --Cache
-local function collectNpcsFromFolder(instance, playersService, localCharacter, outTable)
-    local success, children = pcall(function() return instance:GetChildren() end)
-    if not success or not children then return end
+-- =============================================================================
+-- 4. RECURSIVE CACHE WORKER WITH LIVE DEBUGGING PRINTS
+-- =============================================================================
 
-    for _, child in ipairs(children) do
-        if child ~= localCharacter then
+local function collectOnlyNpcs(inst, myChar, playerNames, outTable, depth)
+    if depth > 8 then return end
+    local ok, kids = pcall(function() return inst:GetChildren() end)
+    if not ok or not kids then return end
+
+    for _, child in ipairs(kids) do
+        if child ~= myChar then
+            local hum
+            pcall(function() hum = child:FindFirstChildOfClass("Humanoid") end)
             
-            local humanoid = child:FindFirstChildOfClass("Humanoid")
-            if humanoid then
-                local isAPlayer = playersService:GetPlayerFromCharacter(child)
+            if hum then
+                local modelName = child.Name
+                -- DEBUG: Print every single model with a humanoid we look at
+                print("[CACHE DEBUG] Checking character model: " .. tostring(modelName))
                 
-                if not isAPlayer then
-                    table.insert(outTable, child)
+                if playerNames[modelName] then
+                    -- DEBUG: Log when we ignore a real human player
+                    print("  -> SKIPPED: Match found in active player list.")
+                else
+                    local hrp = child:FindFirstChild("HumanoidRootPart")
+                        or child:FindFirstChild("Torso")
+                        or child:FindFirstChild("UpperTorso")
+                        or child:FindFirstChild("Head")
+                    if not hrp then
+                        pcall(function() hrp = child:FindFirstChildWhichIsA("BasePart") end)
+                    end
+                    
+                    if hrp then
+                        -- DEBUG: Log when an NPC successfully passes all checks
+                        print("  -> SUCCESS: Added NPC to tracking table.")
+                        table.insert(outTable, child)
+                    else
+                        -- DEBUG: Log if an NPC has a humanoid but no base/root parts to track
+                        print("  -> ERROR: Model has a Humanoid but no valid tracking parts.")
+                    end
                 end
             else
-                if child:IsA("Model") or child:IsA("Folder") then
-                    collectNpcsFromFolder(child, playersService, localCharacter, outTable)
+                local cn = child.ClassName
+                if cn == "Model" or cn == "Folder" then
+                    -- DEBUG: Trace whenever the script dives into a folder layer
+                    print(string.format("[CACHE TRACE] Diving deeper into %s: '%s' (Depth: %d)", cn, child.Name, depth + 1))
+                    collectOnlyNpcs(child, myChar, playerNames, outTable, depth + 1)
                 end
             end
-            
         end
     end
 end
@@ -56,32 +84,28 @@ local function updateNpcCache()
 
     local PlayersService = game:GetService("Players")
     if not PlayersService then return end
-    
-    local charactersFolder = workspace:FindFirstChild("Characters")
-    if charactersFolder then
-        local children = charactersFolder:GetChildren()
-        print(string.format("--- [DIAGNOSTIC] Found %d total items inside Characters folder ---", #children))
-        
-        for _, child in ipairs(children) do
-            -- Print the name of the object and its Class Type (e.g., Model, Folder, Part)
-            print("Name: " .. tostring(child.Name) .. " | Class: " .. tostring(child.ClassName))
-            
-            -- See if it has a Humanoid or a RootPart
-            local hasHumanoid = child:FindFirstChildOfClass("Humanoid") and "YES" or "NO"
-            print("  -> Has Humanoid? " .. hasHumanoid)
-            
-            -- Standard NPC check logic
-            if child:IsA("Model") and child:FindFirstChildOfClass("Humanoid") then
-                local isAPlayer = PlayersService:GetPlayerFromCharacter(child)
-                if not isAPlayer then
-                    table.insert(EntityCache.NPCs, child)
-                end
-            end
-        end
-        print("---------------------------------------------------------")
-    else
-        print("[DIAGNOSTIC] Could not find a folder named 'Characters' in Workspace!")
+
+    local localPlayer = PlayersService.LocalPlayer
+    local myChar = localPlayer and localPlayer.Character
+
+    local playerNames = {}
+    for _, p in ipairs(PlayersService:GetPlayers()) do
+        playerNames[p.Name] = true
     end
+
+    local folder = workspace:FindFirstChild("Characters")
+    if folder then
+        -- DEBUG: Log when the primary target folder is scanned
+        print("[CACHE DEBUG] Scanning 'Characters' folder location...")
+        collectOnlyNpcs(folder, myChar, playerNames, EntityCache.NPCs, 0)
+    else
+        -- DEBUG: Log when using the fallback top-level scan
+        print("[CACHE DEBUG] 'Characters' folder not found. Falling back to entire Workspace scan...")
+        collectOnlyNpcs(workspace, myChar, playerNames, EntityCache.NPCs, 0)
+    end
+    
+    -- DEBUG: Final check showing total targets stored during this 1-second refresh cycle
+    print(string.format("[CACHE SUMMARY] Loop complete. Total NPCs stored: %d", #EntityCache.NPCs))
 end
 
 --Background thread
