@@ -294,8 +294,8 @@ end
 
 if typeof(UI) == "table" and UI.AddTab then
     pcall(function()
-        UI.AddTab("HAVOC ESP", function(tab)
-            local sec = tab:Section("AI ESP", "Left", nil, 260)
+        UI.AddTab("HAVOC", function(tab)
+            local sec = tab:Section("ESP Settings", "Left", {"AI ESP", "World ESP"}, 260)
             sec:Toggle("havoc_esp_enabled",  "Enabled",    DEF.havoc_esp_enabled)
             sec:Toggle("havoc_esp_box",      "Box",        DEF.havoc_esp_box)
             sec:Toggle("havoc_esp_name",     "Name",       DEF.havoc_esp_name)
@@ -304,6 +304,9 @@ if typeof(UI) == "table" and UI.AddTab then
             sec:SliderInt("havoc_esp_dist_max",    "Max Distance",      50, 3000, DEF.havoc_esp_dist_max)
             sec:SliderInt("havoc_esp_update_rate", "Update Rate (fps)",  5,   60, DEF.havoc_esp_update_rate)
             sec:ColorPicker("havoc_esp_boxcol", "Box Color", 255 / 255, 80 / 255, 80 / 255)
+
+            sec:Toggle("havoc_esp_items", "Show Items", DEF.havoc_esp_items or true)
+            sec:Toggle("havoc_esp_containers", "Show Containers", DEF.havoc_esp_containers or true)
 
             local vis = tab:Section("Visuals", "Right", nil, 260)
             vis:Toggle("havoc_nofog", "No Fog", DEF.havoc_nofog)
