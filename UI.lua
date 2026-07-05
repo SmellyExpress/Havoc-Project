@@ -18,7 +18,7 @@ local DEF = {
     havoc_nofog           = false,
 }
 
--- [NEW] Aimbot defaults
+-- Aimbot defaults
 local AIM_DEF = {
     enabled   = false,
     key       = 0x02,          -- RMB
@@ -288,7 +288,6 @@ local function getCharacters()
     if (now - charStamp) < CHAR_TTL then return charCache end
     charStamp = now
 
-    -- Dynamically generate lookup map for real player identities
     local playerNames = {}
     for _, p in ipairs(Players:GetPlayers()) do
         playerNames[p.Name] = true
@@ -303,7 +302,8 @@ local function getCharacters()
     return out
 end
 
--- [NEW] aimbot target selection
+-- ========== AIMBOT FUNCTIONS ==========
+
 local function getBestTarget()
     local cam = Camera
     if not cam then return nil end
@@ -334,7 +334,7 @@ local function getBestTarget()
 
                 local dirToTarget = (aimPos - camPos).Unit
                 local dot = lookDir:Dot(dirToTarget)
-                -- Clamp dot to [-1,1] to avoid math errors
+                -- clamp dot to [-1,1]
                 local clamped = math.max(-1, math.min(1, dot))
                 local angle = math.deg(math.acos(clamped))
 
@@ -357,7 +357,7 @@ local function getBestTarget()
     return best
 end
 
--- [NEW] smooth mouse aiming
+-- Smooth mouse aiming
 local currentMousePos = Vector2.new()
 pcall(function()
     local vp = Camera.ViewportSize
@@ -377,58 +377,65 @@ local function aimAtTarget(target, smoothFactor)
 
     local newPos = currentMousePos:Lerp(targetScreen, smoothFactor)
 
-    -- Replace with your actual mouse API call
+    -- ============================================================
+    -- REPLACE THE FOLLOWING LINE WITH THE CORRECT MOUSE API CALL
+    -- ============================================================
+    -- If you have an absolute mouse function (SetCursorPos):
+    --   SetCursorPos(newPos.X, newPos.Y)
+    -- If you have relative movement (mouse_move(dx, dy)):
+    --   local dx = newPos.X - currentMousePos.X
+    --   local dy = newPos.Y - currentMousePos.Y
+    --   mouse_move(dx, dy)
+    -- If Matcha provides something else, consult its documentation.
+    -- ============================================================
     pcall(function()
-        -- Example absolute movement:
-        SetCursorPos(newPos.X, newPos.Y)
-        -- If you have relative movement, use:
-        -- local dx = newPos.X - currentMousePos.X
-        -- local dy = newPos.Y - currentMousePos.Y
-        -- mouse_move(dx, dy)
+        -- Placeholder: does nothing – replace this with the actual call.
+        -- Example: SetCursorPos(newPos.X, newPos.Y)
     end)
 
     currentMousePos = newPos
 end
 
--- [NEW] Store the aim keybind object
+-- ========== UI CREATION ==========
+
 local aimKey = nil
 
 if typeof(UI) == "table" and UI.AddTab then
-    pcall(function()
-        UI.AddTab("HAVOC ESP", function(tab)
-            local sec = tab:Section("AI ESP", "Left", nil, 260)
-            sec:Toggle("havoc_esp_enabled",  "Enabled",    DEF.havoc_esp_enabled)
-            sec:Toggle("havoc_esp_box",      "Box",        DEF.havoc_esp_box)
-            sec:Toggle("havoc_esp_name",     "Name",       DEF.havoc_esp_name)
-            sec:Toggle("havoc_esp_distance", "Distance",   DEF.havoc_esp_distance)
-            sec:Toggle("havoc_esp_tracer",   "Tracers",    DEF.havoc_esp_tracer)
-            sec:SliderInt("havoc_esp_dist_max",    "Max Distance",      50, 3000, DEF.havoc_esp_dist_max)
-            sec:SliderInt("havoc_esp_update_rate", "Update Rate (fps)",  5,   60, DEF.havoc_esp_update_rate)
-            sec:ColorPicker("havoc_esp_boxcol", "Box Color", 255 / 255, 80 / 255, 80 / 255)
+    UI.AddTab("HAVOC ESP", function(tab)
+        local sec = tab:Section("AI ESP", "Left", nil, 260)
+        sec:Toggle("havoc_esp_enabled",  "Enabled",    DEF.havoc_esp_enabled)
+        sec:Toggle("havoc_esp_box",      "Box",        DEF.havoc_esp_box)
+        sec:Toggle("havoc_esp_name",     "Name",       DEF.havoc_esp_name)
+        sec:Toggle("havoc_esp_distance", "Distance",   DEF.havoc_esp_distance)
+        sec:Toggle("havoc_esp_tracer",   "Tracers",    DEF.havoc_esp_tracer)
+        sec:SliderInt("havoc_esp_dist_max",    "Max Distance",      50, 3000, DEF.havoc_esp_dist_max)
+        sec:SliderInt("havoc_esp_update_rate", "Update Rate (fps)",  5,   60, DEF.havoc_esp_update_rate)
+        sec:ColorPicker("havoc_esp_boxcol", "Box Color", 255 / 255, 80 / 255, 80 / 255)
 
-            -- [NEW] Aimbot section
-            local aim = tab:Section("Aimbot", "Left", nil, 260)
-            aim:Toggle("aim_enabled", "Enabled", AIM_DEF.enabled)
-            aimKey = aim:Keybind("aim_key", AIM_DEF.key, AIM_DEF.key_type)
-            aimKey:AddToHotkey("Aimbot", "aim_enabled")
-            aim:SliderInt("aim_fov", "Field of View (deg)", 1, 360, AIM_DEF.fov)
-            aim:SliderFloat("aim_smooth", "Smoothing", 0.1, 20.0, AIM_DEF.smooth, "%.1f")
-            aim:Combo("aim_hitbox", "Hitbox", {"Head", "Torso", "Nearest"}, AIM_DEF.hitbox)
-            aim:SliderInt("aim_dist_max", "Max Aim Range", 50, 3000, AIM_DEF.dist_max)
+        -- Aimbot Section
+        local aim = tab:Section("Aimbot", "Left", nil, 260)
+        aim:Toggle("aim_enabled", "Enabled", AIM_DEF.enabled)
+        aimKey = aim:Keybind("aim_key", AIM_DEF.key, AIM_DEF.key_type)
+        aimKey:AddToHotkey("Aimbot", "aim_enabled")
+        aim:SliderInt("aim_fov", "Field of View (deg)", 1, 360, AIM_DEF.fov)
+        aim:SliderFloat("aim_smooth", "Smoothing", 0.1, 20.0, AIM_DEF.smooth, "%.1f")
+        aim:Combo("aim_hitbox", "Hitbox", {"Head", "Torso", "Nearest"}, AIM_DEF.hitbox)
+        aim:SliderInt("aim_dist_max", "Max Aim Range", 50, 3000, AIM_DEF.dist_max)
 
-            aim:Button("Reset Aimbot", function()
-                UI.SetValue("aim_enabled", false)
-                UI.SetValue("aim_fov", 180)
-                UI.SetValue("aim_smooth", 6.0)
-                UI.SetValue("aim_hitbox", 0)
-                UI.SetValue("aim_dist_max", 1500)
-            end)
-
-            local vis = tab:Section("Visuals", "Right", nil, 260)
-            vis:Toggle("havoc_nofog", "No Fog", DEF.havoc_nofog)
+        aim:Button("Reset Aimbot", function()
+            UI.SetValue("aim_enabled", false)
+            UI.SetValue("aim_fov", 180)
+            UI.SetValue("aim_smooth", 6.0)
+            UI.SetValue("aim_hitbox", 0)
+            UI.SetValue("aim_dist_max", 1500)
         end)
+
+        local vis = tab:Section("Visuals", "Right", nil, 260)
+        vis:Toggle("havoc_nofog", "No Fog", DEF.havoc_nofog)
     end)
 end
+
+-- ========== ESP ITEMS BUILDING ==========
 
 local espItems = {}
 local snap = { box = true, name = true, dist = true, tracer = false, boxCol = BOX_COL_DEF }
@@ -462,12 +469,15 @@ local function rebuildItems()
     espItems = out
 end
 
+-- ========== RENDER LOOP ==========
+
 local lastDrawn = 0
 local dbgClock  = os.clock()
 
 renderConn = RunService.RenderStepped:Connect(function()
     if not running then return end
 
+    -- No Fog
     local noFog = uiGet("havoc_nofog", DEF.havoc_nofog)
     if noFog then
         applyNoFog()
@@ -476,75 +486,76 @@ renderConn = RunService.RenderStepped:Connect(function()
     end
     lastNoFog = noFog
 
-    if not uiGet("havoc_esp_enabled", DEF.havoc_esp_enabled) then
-        for i = 1, lastDrawn do hideSlot(slots[i]) end
-        lastDrawn = 0
-        return
-    end
+    -- ---- ESP ----
+    if uiGet("havoc_esp_enabled", DEF.havoc_esp_enabled) then
+        local now  = os.clock()
+        local rate = uiGet("havoc_esp_update_rate", DEF.havoc_esp_update_rate)
+        if (now - lastBuild) >= (1 / math.max(1, rate)) then
+            lastBuild = now
+            rebuildItems()
+        end
 
-    local now  = os.clock()
-    local rate = uiGet("havoc_esp_update_rate", DEF.havoc_esp_update_rate)
-    if (now - lastBuild) >= (1 / math.max(1, rate)) then
-        lastBuild = now
-        rebuildItems()
-    end
+        local vp   = Camera.ViewportSize
+        local slot = 0
 
-    local vp   = Camera.ViewportSize
-    local slot = 0
+        for _, it in ipairs(espItems) do
+            if slot >= MAX_SLOTS then break end
 
-    for _, it in ipairs(espItems) do
-        if slot >= MAX_SLOTS then break end
+            local ok, rootPos = pcall(function() return it.part.Position end)
+            if ok and rootPos then
+                local topPos, topOn = worldToScreen(rootPos + V3_HEAD)
+                local botPos, botOn = worldToScreen(rootPos - V3_FOOT)
+                if topOn and botOn then
+                    slot = slot + 1
+                    local s = slots[slot]
+                    hideSlot(s)
 
-        local ok, rootPos = pcall(function() return it.part.Position end)
-        if ok and rootPos then
-            local topPos, topOn = worldToScreen(rootPos + V3_HEAD)
-            local botPos, botOn = worldToScreen(rootPos - V3_FOOT)
-            if topOn and botOn then
-                slot = slot + 1
-                local s = slots[slot]
-                hideSlot(s)
+                    local height = math.abs(botPos.Y - topPos.Y)
+                    if height < 1 then height = 1 end
+                    local width = height * 0.5
+                    local boxX  = topPos.X - width * 0.5
+                    local boxY  = topPos.Y
 
-                local height = math.abs(botPos.Y - topPos.Y)
-                if height < 1 then height = 1 end
-                local width = height * 0.5
-                local boxX  = topPos.X - width * 0.5
-                local boxY  = topPos.Y
+                    if snap.box then
+                        drawBox(s, boxX, boxY, width, height, snap.boxCol)
+                    end
 
-                if snap.box then
-                    drawBox(s, boxX, boxY, width, height, snap.boxCol)
-                end
+                    if snap.name then
+                        s.name.Text     = it.name
+                        s.name.Position = Vector2.new(topPos.X, boxY - TEXT_SIZE - 2)
+                        s.name.Color    = NAME_COL
+                        s.name.Visible  = true
+                    end
 
-                if snap.name then
-                    s.name.Text     = it.name
-                    s.name.Position = Vector2.new(topPos.X, boxY - TEXT_SIZE - 2)
-                    s.name.Color    = NAME_COL
-                    s.name.Visible  = true
-                end
+                    if snap.dist and it.distText then
+                        s.dist.Text     = it.distText
+                        s.dist.Position = Vector2.new(topPos.X, boxY + height + 2)
+                        s.dist.Color    = DIST_COL
+                        s.dist.Visible  = true
+                    end
 
-                if snap.dist and it.distText then
-                    s.dist.Text     = it.distText
-                    s.dist.Position = Vector2.new(topPos.X, boxY + height + 2)
-                    s.dist.Color    = DIST_COL
-                    s.dist.Visible  = true
-                end
-
-                if snap.tracer then
-                    s.tracer.From    = Vector2.new(vp.X * 0.5, vp.Y)
-                    s.tracer.To      = Vector2.new(topPos.X, boxY + height)
-                    s.tracer.Color   = TRACER_COL
-                    s.tracer.Visible = true
+                    if snap.tracer then
+                        s.tracer.From    = Vector2.new(vp.X * 0.5, vp.Y)
+                        s.tracer.To      = Vector2.new(topPos.X, boxY + height)
+                        s.tracer.Color   = TRACER_COL
+                        s.tracer.Visible = true
+                    end
                 end
             end
         end
+
+        for i = slot + 1, lastDrawn do hideSlot(slots[i]) end
+        lastDrawn = slot
+    else
+        -- ESP disabled: hide all
+        for i = 1, lastDrawn do hideSlot(slots[i]) end
+        lastDrawn = 0
     end
 
-    for i = slot + 1, lastDrawn do hideSlot(slots[i]) end
-    lastDrawn = slot
-
-    -- [NEW] Aimbot logic – runs every frame, after ESP
+    -- ---- AIMBOT ----
     if uiGet("aim_enabled", false) and aimKey and aimKey:IsEnabled() then
         local smoothVal = uiGet("aim_smooth", 6.0)
-        -- Map smoothing: higher = slower
+        -- Convert smoothing to lerp factor (higher = slower)
         local factor = math.max(0.01, math.min(0.99, 1 / (smoothVal * 0.5 + 1)))
         local target = getBestTarget()
         if target then
@@ -552,10 +563,10 @@ renderConn = RunService.RenderStepped:Connect(function()
         end
     end
 
-    if DEBUG and (now - dbgClock) >= 1 then
-        dbgClock = now
-        print(string.format("[HAVOC ESP] items=%d drawn=%d", #espItems, slot))
+    if DEBUG and (os.clock() - dbgClock) >= 1 then
+        dbgClock = os.clock()
+        print(string.format("[HAVOC] ESP: items=%d drawn=%d", #espItems, lastDrawn))
     end
 end)
 
-print("[HAVOC AI ESP] loaded and synchronized.")
+print("[HAVOC AI ESP + Aimbot] loaded and synchronized.")
