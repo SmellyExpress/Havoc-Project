@@ -27,10 +27,6 @@ else
 end
 
 --Cache
--- =============================================================================
--- 4. RECURSIVE CACHE WORKER WITH LIVE DEBUGGING PRINTS
--- =============================================================================
-
 local function collectOnlyNpcs(inst, myChar, playerNames, outTable, depth)
     if depth > 8 then return end
     local ok, kids = pcall(function() return inst:GetChildren() end)
@@ -43,13 +39,7 @@ local function collectOnlyNpcs(inst, myChar, playerNames, outTable, depth)
             
             if hum then
                 local modelName = child.Name
-                -- DEBUG: Print every single model with a humanoid we look at
-                print("[CACHE DEBUG] Checking character model: " .. tostring(modelName))
-                
-                if playerNames[modelName] then
-                    -- DEBUG: Log when we ignore a real human player
-                    print("  -> SKIPPED: Match found in active player list.")
-                else
+                if not playerNames[modelName] then
                     local hrp = child:FindFirstChild("HumanoidRootPart")
                         or child:FindFirstChild("Torso")
                         or child:FindFirstChild("UpperTorso")
@@ -59,19 +49,12 @@ local function collectOnlyNpcs(inst, myChar, playerNames, outTable, depth)
                     end
                     
                     if hrp then
-                        -- DEBUG: Log when an NPC successfully passes all checks
-                        print("  -> SUCCESS: Added NPC to tracking table.")
                         table.insert(outTable, child)
-                    else
-                        -- DEBUG: Log if an NPC has a humanoid but no base/root parts to track
-                        print("  -> ERROR: Model has a Humanoid but no valid tracking parts.")
                     end
                 end
             else
                 local cn = child.ClassName
                 if cn == "Model" or cn == "Folder" then
-                    -- DEBUG: Trace whenever the script dives into a folder layer
-                    print(string.format("[CACHE TRACE] Diving deeper into %s: '%s' (Depth: %d)", cn, child.Name, depth + 1))
                     collectOnlyNpcs(child, myChar, playerNames, outTable, depth + 1)
                 end
             end
@@ -95,17 +78,10 @@ local function updateNpcCache()
 
     local folder = workspace:FindFirstChild("Characters")
     if folder then
-        -- DEBUG: Log when the primary target folder is scanned
-        print("[CACHE DEBUG] Scanning 'Characters' folder location...")
         collectOnlyNpcs(folder, myChar, playerNames, EntityCache.NPCs, 0)
     else
-        -- DEBUG: Log when using the fallback top-level scan
-        print("[CACHE DEBUG] 'Characters' folder not found. Falling back to entire Workspace scan...")
         collectOnlyNpcs(workspace, myChar, playerNames, EntityCache.NPCs, 0)
     end
-    
-    -- DEBUG: Final check showing total targets stored during this 1-second refresh cycle
-    print(string.format("[CACHE SUMMARY] Loop complete. Total NPCs stored: %d", #EntityCache.NPCs))
 end
 
 --Background thread
