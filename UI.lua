@@ -1,3 +1,4 @@
+--Cleanup Previous runs
 if _G.HavocCleanup then
     local success, errorMessage = pcall(_G.HavocCleanup)
     if not success then
@@ -5,27 +6,68 @@ if _G.HavocCleanup then
     end
 end
 
-local isScriptRunnning = true
+local isScriptRunning = true
 
 _G.HavocCleanup = function()
     isScriptRunning = false
     print("Cleaned up previous session.")
 end
-
+--Global Tables 
+EntityCache = {
+    NPCs = {}
+}
+--UI DEF
 if typeof(UI) == "table" and UI.AddTab then
     UI.AddTab("Havoc", function(tab)
         local VisualSec = tab:Section("Visuals", "Left")
         VisualSec:Toggle("havoc_esp", "Esp", false)
     end)
-
-else warn("UI Library not found")
+else
+    warn("UI Library not found")
 end
 
+--Cache DEF
+local function updateNpcCache()
+    EntityCache.NPCs = {}
+
+    local PlayersService = game:GetService("Players")
+    if not PlayersService then return end
+
+    for _, object in ipairs(workspace:GetChildren()) do
+        if object:IsA("Model") and object:FindFirstChildOfClass("Humanoid") then
+                local isAPlayer = PlayersService:GetPlayerFromCharacter(object)
+                if not isAPlayer then
+                    table.insert(EntityCache.NPCs, object)
+                end  
+            end
+        end
+    end
+
+--Background thread
+task.spawn(function()
+    while isScriptRunning do
+        pcall(updateNpcCache)
+        task.wait(1)
+    end
+end)
+    
+
+--MainLoop
 task.spawn(function()
     while isScriptRunning do
         if typeof(UI) == "table" and UI.GetValue then
             if UI.GetValue("havoc_esp") then
-                print("Script is active and running")
+                print("--- [DEBUG] Tracked NPCs ---")
+                
+                if #EntityCache.NPCs == 0 then
+                    print("No non-player NPCs found in workspace.")
+                else
+                    for index, npc in ipairs(EntityCache.NPCs) do
+                        print(string.format("[%d] %s", index, npc.Name))
+                    end
+                end
+                
+                print("-----------------------------")
             end
         end
 
