@@ -34,10 +34,12 @@ end
 EntityCache = { NPCs = {} }
 local BOX_COL = Color3.fromRGB(255, 80, 80)
 local TEXT_SIZE = 13
+local NAME_COL = Color3.fromRGB(235, 235, 235)
+local DIST_COL = Color3.fromRGB(170, 170, 170)
 
--- Adjusted offsets to properly encase standard NPC humanoids
-local V3_HEAD = Vector3.new(0, 2.3, 0)
-local V3_FOOT = Vector3.new(0, 3.0, 0)
+-- Matches your working reference script offsets perfectly
+local V3_HEAD = Vector3.new(0, 2.6, 0)
+local V3_FOOT = Vector3.new(0, 3.2, 0)
 
 -- 3. UI DEFINITION
 if typeof(UI) == "table" and UI.AddTab then
@@ -50,7 +52,7 @@ else
 end
 
 -- 4. ENVIRONMENT NATIVE FUNCTIONS
-local WorldToScreenFn = WorldToScreen -- Native environment global discovered in reference script
+local WorldToScreenFn = WorldToScreen 
 local function worldToScreen(pos)
     if WorldToScreenFn then
         return WorldToScreenFn(pos)
@@ -222,7 +224,7 @@ renderConnection = RunService.RenderStepped:Connect(function()
         if npcRoot then
             local npcPos = npcRoot.Position
             
-            -- Vector projection using updated V3 offsets
+            -- Pure spatial offset projections matching the working reference script layout
             local topPos, topOn = worldToScreen(npcPos + V3_HEAD)
             local botPos, botOn = worldToScreen(npcPos - V3_FOOT)
 
@@ -233,7 +235,7 @@ renderConnection = RunService.RenderStepped:Connect(function()
                 -- Box sizing derivations from screen space calculations
                 local height = math.abs(botPos.Y - topPos.Y)
                 if height < 1 then height = 1 end
-                local width = height * 0.55 -- Scaled layout constraint
+                local width = height * 0.5
                 local boxX = topPos.X - width * 0.5
                 local boxY = topPos.Y
 
@@ -243,6 +245,7 @@ renderConnection = RunService.RenderStepped:Connect(function()
                 -- Identity tag positioning
                 slot.name.Text = npc.Name
                 slot.name.Position = Vector2.new(topPos.X, boxY - TEXT_SIZE - 2)
+                slot.name.Color = NAME_COL
                 slot.name.Visible = true
 
                 -- Range metric calculation
@@ -253,6 +256,7 @@ renderConnection = RunService.RenderStepped:Connect(function()
                     slot.distance.Text = "NPC"
                 end
                 slot.distance.Position = Vector2.new(topPos.X, boxY + height + 2)
+                slot.distance.Color = DIST_COL
                 slot.distance.Visible = true
             end
         end
