@@ -52,9 +52,9 @@ local function createScreenBox(color)
     return box
 end
 
-local function createScreenText(fontSize)
+local function createScreenText(fontSizeValue)
     local text = Drawing.new("Text")
-    text.Size = fontSize or DEFAULT_TEXT_SIZE -- FIX: Changed from FontSize to Size
+    text.FontSize = fontSizeValue or DEFAULT_TEXT_SIZE -- Set the integer FontSize
     text.Center = true
     text.Outline = true
     text.Font = Drawing.Fonts.Monospace 
@@ -190,9 +190,10 @@ renderConnection = RunService.RenderStepped:Connect(function()
                 local width = math.clamp(factor * 0.6, 10, 150)
                 local height = math.clamp(factor, 15, 200)
 
-                slot.box.Position = Vector2.new(screenPos.X - (width / 2), screenPos.Y - (height / 2))
-                slot.box.Size = Vector2.new(width, height)
-                slot.box.Visible = true
+                slot.name.Text = npc.Name
+                -- Use the explicit property name matching your API definition (.FontSize)
+                slot.name.Position = Vector2.new(screenPos.X, screenPos.Y - (height / 2) - slot.name.FontSize - 2)
+                slot.name.Visible = true
 
                 slot.name.Text = npc.Name
                 -- FIX: Changed from slot.name.FontSize to slot.name.Size
