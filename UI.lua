@@ -18,6 +18,16 @@ local DEF = {
     havoc_nofog           = false,
 }
 
+local AIM_DEF = {
+    enabled   = false,
+    key       = 0x02,
+    key_type  = "hold",
+    fov       = 180,
+    smooth    = 6.0,
+    hitbox    = 0,
+    dist_max  = 1500,
+}
+
 local BOX_COL_DEF = Color3.fromRGB(255, 80, 80)
 local NAME_COL    = Color3.fromRGB(235, 235, 235)
 local DIST_COL    = Color3.fromRGB(170, 170, 170)
@@ -304,6 +314,24 @@ if typeof(UI) == "table" and UI.AddTab then
             sec:SliderInt("havoc_esp_dist_max",    "Max Distance",      50, 3000, DEF.havoc_esp_dist_max)
             sec:SliderInt("havoc_esp_update_rate", "Update Rate (fps)",  5,   60, DEF.havoc_esp_update_rate)
             sec:ColorPicker("havoc_esp_boxcol", "Box Color", 255 / 255, 80 / 255, 80 / 255)
+                    
+            local aim = tab:Section("Aimbot", "Left", nil, 260)
+            local aimToggle = aim:Toggle("aim_enabled", "Enabled", AIM_DEF.enabled)
+            local aimKey = aim:Keybind("aim_key", AIM_DEF.key, AIM_DEF.key_type)
+            aimKey:AddToHotkey("Aimbot", "aim_enabled")
+            aim:SliderInt("aim_fov", "Field of View (deg)", 1, 360, AIM_DEF.fov)
+            aim:SliderFloat("aim_smooth", "Smoothing", 0.1, 20.0, AIM_DEF.smooth, "%.1f")
+            aim:Combo("aim_hitbox", "Hitbox", {"Head", "Torso", "Nearest"}, AIM_DEF.hitbox)
+            aim:SliderInt("aim_dist_max", "Max Aim Range", 50, 3000, AIM_DEF.dist_max)
+
+            -- Optional: a button to reset aimbot settings
+            aim:Button("Reset Aimbot", function()
+                UI.SetValue("aim_enabled", false)
+                UI.SetValue("aim_fov", 180)
+                UI.SetValue("aim_smooth", 6.0)
+                UI.SetValue("aim_hitbox", 0)
+                UI.SetValue("aim_dist_max", 1500)
+            end)
 
             local vis = tab:Section("Visuals", "Right", nil, 260)
             vis:Toggle("havoc_nofog", "No Fog", DEF.havoc_nofog)
