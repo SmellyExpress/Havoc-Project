@@ -26,22 +26,51 @@ else
     warn("UI Library not found")
 end
 
---Cache DEF
+--Cache
+local function collectNpcsFromFolder(instance, playersService, localCharacter, outTable)
+    local success, children = pcall(function() return instance:GetChildren() end)
+    if not success or not children then return end
+
+    for _, child in ipairs(children) do
+        if child ~= localCharacter then
+            
+            local humanoid = child:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                local isAPlayer = playersService:GetPlayerFromCharacter(child)
+                
+                if not isAPlayer then
+                    table.insert(outTable, child)
+                end
+            else
+                if child:IsA("Model") or child:IsA("Folder") then
+                    collectNpcsFromFolder(child, playersService, localCharacter, outTable)
+                end
+            end
+            
+        end
+    end
+end
+
 local function updateNpcCache()
     EntityCache.NPCs = {}
 
     local PlayersService = game:GetService("Players")
     if not PlayersService then return end
-
-    for _, object in ipairs(workspace:GetChildren()) do
-        if object:IsA("Model") and object:FindFirstChildOfClass("Humanoid") then
-                local isAPlayer = PlayersService:GetPlayerFromCharacter(object)
-                if not isAPlayer then
+    
+    local localCharacter = PlayersService.LocalPlayer and PlayersService.LocalPlayer.Character
+    local charactersFolder = workspace:FindFirstChild("Characters")
+    if charactersFolder then
+        collectNpcsFromFolder(charactersFolder, PlayersService, localCharacter, EntityCache.NPCs)
+    else
+        for _, object in ipairs(workspace:GetChildren()) do
+            if object:IsA("Model") and object:FindFirstChildOfClass("Humanoid") then
+                if object ~= localCharacter and not PlayersService:GetPlayerFromCharacter(object) then
                     table.insert(EntityCache.NPCs, object)
-                end  
+                end
             end
         end
     end
+end
 
 --Background thread
 task.spawn(function()
