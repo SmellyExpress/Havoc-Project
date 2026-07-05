@@ -16,17 +16,13 @@ local DEF = {
     havoc_esp_distance    = true,
     havoc_esp_tracer      = false,
     havoc_nofog           = false,
-    havoc_esp_items       = true,
-    havoc_esp_containers  = true,
 }
 
-local BOX_COL_DEF       = Color3.fromRGB(255, 80, 80)
-local ITEM_COL_DEF      = Color3.fromRGB(80, 220, 255)
-local CONTAINER_COL_DEF = Color3.fromRGB(255, 200, 50)
-local NAME_COL          = Color3.fromRGB(235, 235, 235)
-local DIST_COL          = Color3.fromRGB(170, 170, 170)
-local TRACER_COL        = Color3.fromRGB(255, 80, 80)
-local TEXT_SIZE         = 13
+local BOX_COL_DEF = Color3.fromRGB(255, 80, 80)
+local NAME_COL    = Color3.fromRGB(235, 235, 235)
+local DIST_COL    = Color3.fromRGB(170, 170, 170)
+local TRACER_COL  = Color3.fromRGB(255, 80, 80)
+local TEXT_SIZE   = 13
 
 local function uiGet(key, fallback)
     if typeof(UI) == "table" and UI.GetValue then
@@ -141,7 +137,7 @@ _G.HAVOC_ESP_CLEANUP = function()
 end
 
 local FONT      = Drawing.Fonts.Monospace or Drawing.Fonts.System
-local MAX_SLOTS = 60
+local MAX_SLOTS = 40
 
 local function newLine(color, thickness)
     local l = track(Drawing.new("Line"))
@@ -242,6 +238,7 @@ local function getEyePos()
     return nil
 end
 
+-- Re-purposed recursive collection function that enforces active player blacklisting
 local function collectFrom(inst, myChar, playerNames, out, depth)
     if depth > 8 then return end
     local ok, kids = pcall(function() return inst:GetChildren() end)
@@ -272,41 +269,6 @@ local function collectFrom(inst, myChar, playerNames, out, depth)
     end
 end
 
--- Fixed collection to look exactly in workspace.buildings.loots
-local function collectItemsAndContainers(out)
-    local buildingsFolder = workspace:FindFirstChild("buildings")
-    local lootsFolder = buildingsFolder and buildingsFolder:FindFirstChild("loots")
-    if not lootsFolder then return end
-
-    local ok, kids = pcall(function() return lootsFolder:GetChildren() end)
-    if not ok or not kids then return end
-
-    for _, child in ipairs(kids) do
-        local nameLower = child.Name:lower()
-        local isContainer = nameLower:find("container") or nameLower:find("chest") or nameLower:find("safe") or nameLower:find("crate") or nameLower:find("case")
-        local isItem = not isContainer -- If it's in the loots folder and not explicitly tagged as a container, treat it as a world item
-
-        if child:IsA("BasePart") then
-            out[#out + 1] = {
-                part = child,
-                name = child.Name,
-                isItem = isItem,
-                isContainer = isContainer
-            }
-        elseif child:IsA("Model") then
-            local mainPart = child.PrimaryPart or child:FindFirstChildWhichIsA("BasePart") or child:FindFirstChildWhichIsA("MeshPart")
-            if mainPart then
-                out[#out + 1] = {
-                    part = mainPart,
-                    name = child.Name,
-                    isItem = isItem,
-                    isContainer = isContainer
-                }
-            end
-        end
-    end
-end
-
 local charCache, charStamp = {}, 0
 local CHAR_TTL = 0.5
 
@@ -315,6 +277,7 @@ local function getCharacters()
     if (now - charStamp) < CHAR_TTL then return charCache end
     charStamp = now
 
+    -- Dynamically generate lookup map for real player identities
     local playerNames = {}
     for _, p in ipairs(Players:GetPlayers()) do
         playerNames[p.Name] = true
@@ -331,22 +294,16 @@ end
 
 if typeof(UI) == "table" and UI.AddTab then
     pcall(function()
-        UI.AddTab("HAVOC", function(tab)
-            local sec = tab:Section("ESP Settings", "Left", {"AI ESP", "World ESP"}, 260)
-            
-            if sec.page == 0 then
-                sec:Toggle("havoc_esp_enabled",  "Enabled",    DEF.havoc_esp_enabled)
-                sec:Toggle("havoc_esp_box",      "Box",        DEF.havoc_esp_box)
-                sec:Toggle("havoc_esp_name",     "Name",       DEF.havoc_esp_name)
-                sec:Toggle("havoc_esp_distance", "Distance",   DEF.havoc_esp_distance)
-                sec:Toggle("havoc_esp_tracer",   "Tracers",    DEF.havoc_esp_tracer)
-                sec:SliderInt("havoc_esp_dist_max",    "Max Distance",      50, 3000, DEF.havoc_esp_dist_max)
-                sec:SliderInt("havoc_esp_update_rate", "Update Rate (fps)",  5,   60, DEF.havoc_esp_update_rate)
-                sec:ColorPicker("havoc_esp_boxcol", "Box Color", 255 / 255, 80 / 255, 80 / 255)
-            elseif sec.page == 1 then
-                sec:Toggle("havoc_esp_items", "Show Items", DEF.havoc_esp_items)
-                sec:Toggle("havoc_esp_containers", "Show Containers", DEF.havoc_esp_containers)
-            end
+        UI.AddTab("HAVOC ESP", function(tab)
+            local sec = tab:Section("AI ESP", "Left", nil, 260)
+            sec:Toggle("havoc_esp_enabled",  "Enabled",    DEF.havoc_esp_enabled)
+            sec:Toggle("havoc_esp_box",      "Box",        DEF.havoc_esp_box)
+            sec:Toggle("havoc_esp_name",     "Name",       DEF.havoc_esp_name)
+            sec:Toggle("havoc_esp_distance", "Distance",   DEF.havoc_esp_distance)
+            sec:Toggle("havoc_esp_tracer",   "Tracers",    DEF.havoc_esp_tracer)
+            sec:SliderInt("havoc_esp_dist_max",    "Max Distance",      50, 3000, DEF.havoc_esp_dist_max)
+            sec:SliderInt("havoc_esp_update_rate", "Update Rate (fps)",  5,   60, DEF.havoc_esp_update_rate)
+            sec:ColorPicker("havoc_esp_boxcol", "Box Color", 255 / 255, 80 / 255, 80 / 255)
 
             local vis = tab:Section("Visuals", "Right", nil, 260)
             vis:Toggle("havoc_nofog", "No Fog", DEF.havoc_nofog)
@@ -365,57 +322,24 @@ local function rebuildItems()
     snap.tracer = uiGet("havoc_esp_tracer",   DEF.havoc_esp_tracer)
     snap.boxCol = uiColor("havoc_esp_boxcol", BOX_COL_DEF)
 
-    local showItems = uiGet("havoc_esp_items", DEF.havoc_esp_items)
-    local showContainers = uiGet("havoc_esp_containers", DEF.havoc_esp_containers)
     local camP    = getEyePos()
     local maxDist = uiGet("havoc_esp_dist_max", DEF.havoc_esp_dist_max)
 
     local out = {}
-    
-    -- 1. AI Entities
     for _, e in ipairs(getCharacters()) do
         local ok, rootPos = pcall(function() return e.hrp.Position end)
         if ok and rootPos then
             local d = camP and (camP - rootPos).Magnitude or nil
             if not (d and d > maxDist) then
                 out[#out + 1] = {
-                    part        = e.hrp,
-                    name        = e.model.Name,
-                    distText    = d and string.format("%dm", math.floor(d)) or nil,
-                    isWorldLoot = false,
-                    color       = snap.boxCol
+                    part     = e.hrp,
+                    name     = e.model.Name,
+                    distText = d and string.format("%dm", math.floor(d)) or nil,
                 }
                 if #out >= MAX_SLOTS then break end
             end
         end
     end
-    
-    -- 2. World Items from workspace.buildings.loots
-    if (showItems or showContainers) and #out < MAX_SLOTS then
-        local worldLoot = {}
-        collectItemsAndContainers(worldLoot)
-        
-        for _, item in ipairs(worldLoot) do
-            if (item.isItem and showItems) or (item.isContainer and showContainers) then
-                local ok, itemPos = pcall(function() return item.part.Position end)
-                if ok and itemPos then
-                    local d = camP and (camP - itemPos).Magnitude or nil
-                    if not (d and d > maxDist) then
-                        local displayCol = item.isContainer and CONTAINER_COL_DEF or ITEM_COL_DEF
-                        out[#out + 1] = {
-                            part        = item.part,
-                            name        = item.name,
-                            distText    = d and string.format("%dm", math.floor(d)) or nil,
-                            isWorldLoot = true,
-                            color       = displayCol
-                        }
-                        if #out >= MAX_SLOTS then break end
-                    end
-                end
-            end
-        end
-    end
-    
     espItems = out
 end
 
@@ -454,67 +378,42 @@ renderConn = RunService.RenderStepped:Connect(function()
 
         local ok, rootPos = pcall(function() return it.part.Position end)
         if ok and rootPos then
-            if it.isWorldLoot then
-                -- World Loot ESP: Just Name and Distance (No Boxes, No Tracers)
-                local screenPos, onScreen = worldToScreen(rootPos)
-                if onScreen then
-                    slot = slot + 1
-                    local s = slots[slot]
-                    hideSlot(s)
-                    
-                    if snap.name then
-                        s.name.Text     = it.name
-                        s.name.Position = Vector2.new(screenPos.X, screenPos.Y - (TEXT_SIZE / 2))
-                        s.name.Color    = it.color
-                        s.name.Visible  = true
-                    end
-                    
-                    if snap.dist and it.distText then
-                        s.dist.Text     = it.distText
-                        s.dist.Position = Vector2.new(screenPos.X, screenPos.Y + (TEXT_SIZE / 2))
-                        s.dist.Color    = DIST_COL
-                        s.dist.Visible  = true
-                    end
+            local topPos, topOn = worldToScreen(rootPos + V3_HEAD)
+            local botPos, botOn = worldToScreen(rootPos - V3_FOOT)
+            if topOn and botOn then
+                slot = slot + 1
+                local s = slots[slot]
+                hideSlot(s)
+
+                local height = math.abs(botPos.Y - topPos.Y)
+                if height < 1 then height = 1 end
+                local width = height * 0.5
+                local boxX  = topPos.X - width * 0.5
+                local boxY  = topPos.Y
+
+                if snap.box then
+                    drawBox(s, boxX, boxY, width, height, snap.boxCol)
                 end
-            else
-                -- AI Character Models: Full 2D Box Visuals
-                local topPos, topOn = worldToScreen(rootPos + V3_HEAD)
-                local botPos, botOn = worldToScreen(rootPos - V3_FOOT)
-                if topOn and botOn then
-                    slot = slot + 1
-                    local s = slots[slot]
-                    hideSlot(s)
 
-                    local height = math.abs(botPos.Y - topPos.Y)
-                    if height < 1 then height = 1 end
-                    local width = height * 0.5
-                    local boxX  = topPos.X - width * 0.5
-                    local boxY  = topPos.Y
+                if snap.name then
+                    s.name.Text     = it.name
+                    s.name.Position = Vector2.new(topPos.X, boxY - TEXT_SIZE - 2)
+                    s.name.Color    = NAME_COL
+                    s.name.Visible  = true
+                end
 
-                    if snap.box then
-                        drawBox(s, boxX, boxY, width, height, it.color or snap.boxCol)
-                    end
+                if snap.dist and it.distText then
+                    s.dist.Text     = it.distText
+                    s.dist.Position = Vector2.new(topPos.X, boxY + height + 2)
+                    s.dist.Color    = DIST_COL
+                    s.dist.Visible  = true
+                end
 
-                    if snap.name then
-                        s.name.Text     = it.name
-                        s.name.Position = Vector2.new(topPos.X, boxY - TEXT_SIZE - 2)
-                        s.name.Color    = NAME_COL
-                        s.name.Visible  = true
-                    end
-
-                    if snap.dist and it.distText then
-                        s.dist.Text     = it.distText
-                        s.dist.Position = Vector2.new(topPos.X, boxY + height + 2)
-                        s.dist.Color    = DIST_COL
-                        s.dist.Visible  = true
-                    end
-
-                    if snap.tracer then
-                        s.tracer.From    = Vector2.new(vp.X * 0.5, vp.Y)
-                        s.tracer.To      = Vector2.new(topPos.X, boxY + height)
-                        s.tracer.Color   = TRACER_COL
-                        s.tracer.Visible = true
-                    end
+                if snap.tracer then
+                    s.tracer.From    = Vector2.new(vp.X * 0.5, vp.Y)
+                    s.tracer.To      = Vector2.new(topPos.X, boxY + height)
+                    s.tracer.Color   = TRACER_COL
+                    s.tracer.Visible = true
                 end
             end
         end
