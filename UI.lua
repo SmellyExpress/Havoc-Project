@@ -52,27 +52,29 @@ local function createScreenBox(color)
     return box
 end
 
-local function createScreenText(desiredSize)
-    local text = Drawing.new("Text")
-    
-    -- Safety wrap every property assignment individually to guarantee 0 initialization crashes
-    pcall(function() text.FontSize = desiredSize or DEFAULT_TEXT_SIZE end)
-    pcall(function() text.Size = desiredSize or DEFAULT_TEXT_SIZE end)
-    pcall(function() text.Center = true end)
-    pcall(function() text.Outline = true end)
-    pcall(function() text.Font = Drawing.Fonts.Monospace end)
-    pcall(function() text.Color = Color3.fromRGB(235, 235, 235) end)
-    
-    text.Visible = false
-    return text
+local function createScreenText()
+    -- Create a completely blank text item with absolutely no properties set
+    return Drawing.new("Text")
 end
 
+-- Initialize the basic objects first
 for i = 1, MAX_SLOTS do
     drawingsPool[i] = {
         box = createScreenBox(),
-        name = createScreenText(DEFAULT_TEXT_SIZE),
-        distance = createScreenText(DEFAULT_TEXT_SIZE)
+        name = createScreenText(),
+        distance = createScreenText()
     }
+    
+    -- Now safe-apply properties line by line to discover what property it dislikes
+    pcall(function() drawingsPool[i].name.Size = DEFAULT_TEXT_SIZE end)
+    pcall(function() drawingsPool[i].name.Center = true end)
+    pcall(function() drawingsPool[i].name.Outline = true end)
+    pcall(function() drawingsPool[i].name.Visible = false end)
+
+    pcall(function() drawingsPool[i].distance.Size = DEFAULT_TEXT_SIZE end)
+    pcall(function() drawingsPool[i].distance.Center = true end)
+    pcall(function() drawingsPool[i].distance.Outline = true end)
+    pcall(function() drawingsPool[i].distance.Visible = false end)
 end
 
 local function hideVisualSlot(slot)
@@ -80,7 +82,6 @@ local function hideVisualSlot(slot)
     slot.name.Visible = false
     slot.distance.Visible = false
 end
-
 --Cache
 local function collectOnlyNpcs(inst, myChar, playerNames, outTable, depth)
     if depth > 8 then return end
