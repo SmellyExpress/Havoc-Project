@@ -1,8 +1,12 @@
---Cleanup Previous runs
+-- =============================================================================
+-- HAVOC PROJECT: COMPLETE CLEAN INSTANCE
+-- =============================================================================
+
+-- 1. CLEANUP PREVIOUS RUNS
 if _G.HavocCleanup then
     local success, errorMessage = pcall(_G.HavocCleanup)
     if not success then
-        warn("failed to cleanup previous script instance: " ..tostring(errorMessage))
+        warn("Failed to cleanup previous script instance: " .. tostring(errorMessage))
     end
 end
 
@@ -23,12 +27,12 @@ _G.HavocCleanup = function()
     print("Cleaned up previous session and drawings.")
 end
 
---Global Tables 
+-- 2. GLOBAL TABLES
 EntityCache = {
     NPCs = {}
 }
 
---UI Definition
+-- 3. UI DEFINITION
 if typeof(UI) == "table" and UI.AddTab then
     UI.AddTab("Havoc", function(tab)
         local VisualSec = tab:Section("Visuals", "Left")
@@ -38,7 +42,7 @@ else
     warn("UI Library not found")
 end
 
---Screen Drawing Pool
+-- 4. SCREEN DRAWING POOL
 local Camera = workspace.CurrentCamera
 local MAX_SLOTS = 40 
 local DEFAULT_TEXT_SIZE = 13
@@ -53,11 +57,10 @@ local function createScreenBox(color)
 end
 
 local function createScreenText()
-    -- Create a completely blank text item with absolutely no properties set
     return Drawing.new("Text")
 end
 
--- Initialize the basic objects first
+-- Initialize pool objects cleanly
 for i = 1, MAX_SLOTS do
     drawingsPool[i] = {
         box = createScreenBox(),
@@ -65,7 +68,7 @@ for i = 1, MAX_SLOTS do
         distance = createScreenText()
     }
     
-    -- Now safe-apply properties line by line to discover what property it dislikes
+    -- Safe property assignment bypasses initialization rejections
     pcall(function() drawingsPool[i].name.Size = DEFAULT_TEXT_SIZE end)
     pcall(function() drawingsPool[i].name.Center = true end)
     pcall(function() drawingsPool[i].name.Outline = true end)
@@ -82,7 +85,8 @@ local function hideVisualSlot(slot)
     slot.name.Visible = false
     slot.distance.Visible = false
 end
---Cache
+
+-- 5. CACHE ENGINE
 local function collectOnlyNpcs(inst, myChar, playerNames, outTable, depth)
     if depth > 8 then return end
     local ok, kids = pcall(function() return inst:GetChildren() end)
@@ -140,7 +144,7 @@ local function updateNpcCache()
     end
 end
 
---Background thread
+-- 6. BACKGROUND THREAD
 task.spawn(function()
     while isScriptRunning do
         pcall(updateNpcCache)
@@ -149,7 +153,7 @@ task.spawn(function()
 end)
 
 -- =============================================================================
--- 7. MAIN RENDERING ENGINE (Matcha VM Custom Matrix Edition)
+-- 7. MAIN RENDERING ENGINE (Pure Mathematical Projection)
 -- =============================================================================
 local RunService = game:GetService("RunService")
 local lastDrawnSlots = 0
@@ -179,14 +183,18 @@ renderConnection = RunService.RenderStepped:Connect(function()
     local myCharacter = localPlayer and localPlayer.Character
     local myRootPart = myCharacter and myCharacter:FindFirstChild("HumanoidRootPart")
 
-    -- Capture current camera state using confirmed API properties
+    -- Safe retrieval of documented properties
     local camPos = Camera.Position
-    local viewSize = Camera.ViewportSize
-    local fov = Camera.FieldOfView
+    local viewSize = Camera.ViewportSize or Vector2.new(800, 600)
+    local fov = Camera.FieldOfView or 70
 
-    -- Workaround to get look direction if CFrame is fully absent
-    -- We assume standard orientation or fallback to tracking relative vectors
-    local targetFolder = workspace:FindFirstChild("Characters")
+    -- Standard orientation fallbacks
+    local lookVector = Vector3.new(0, 0, -1)
+    pcall(function()
+        if Camera.CFrame then
+            lookVector = Camera.CFrame.LookVector
+        end
+    end)
 
     for _, npc in ipairs(EntityCache.NPCs or {}) do
         if currentSlotIndex >= MAX_SLOTS then break end
@@ -194,55 +202,50 @@ renderConnection = RunService.RenderStepped:Connect(function()
         local npcRoot = npc:FindFirstChild("HumanoidRootPart") or npc:FindFirstChild("Head")
         if npcRoot then
             local npcPos = npcRoot.Position
-            
-            -- Calculate relative distance vectors manually
-            local relativePos = npcPos - camPos
-            local distance = relativePos.Magnitude
+            local toTarget = npcPos - camPos
+            local distance = toTarget.Magnitude
 
-            if distance > 1 then
-                -- Basic custom viewport transformation calculation for environments without WorldToViewportPoint
-                -- Transforms relative position into screen coordinates based on FOV and Viewport Size
-                local aspect = viewSize.X / viewSize.Y
+            -- Dot product verification to ensure target is in front of camera view
+            local dotProduct = toTarget.Unit:Dot(lookVector)
+
+            if distance > 2 and dotProduct > 0 then
+                currentSlotIndex = currentSlotIndex + 1
+                local slot = drawingsPool[currentSlotIndex]
+
+                -- Custom viewport math mapping 3D space coordinates onto 2D viewport
                 local fovRad = math.rad(fov)
+                local aspect = viewSize.X / viewSize.Y
                 local halfHeight = math.tan(fovRad / 2) * distance
                 local halfWidth = halfHeight * aspect
 
-                -- Simple distance projection validation
-                -- Ensure the object is roughly within a reasonable front-facing vector field
-                if distance < 1000 then
-                    currentSlotIndex = currentSlotIndex + 1
-                    local slot = drawingsPool[currentSlotIndex]
+                local centerX = viewSize.X / 2
+                local centerY = viewSize.Y / 2
 
-                    -- Static Screen Scaling fallback maps center of screen outward
-                    local centerX = viewSize.X / 2
-                    local centerY = viewSize.Y / 2
+                -- Core projection mapping values
+                local screenX = centerX + (toTarget.X / halfWidth) * centerX
+                local screenY = centerY - (toTarget.Y / halfHeight) * centerY
 
-                    -- Rough approximation mapping for screen space offset 
-                    local screenX = centerX + (relativePos.X / halfWidth) * centerX
-                    local screenY = centerY - (relativePos.Y / halfHeight) * centerY
+                -- Scale constraints calculation based on camera perspective depth
+                local factor = 1 / (distance * math.tan(fovRad / 2)) * 1000
+                local width = math.clamp(factor * 0.6, 10, 150)
+                local height = math.clamp(factor, 15, 200)
 
-                    -- Determine box parameters based on distance factor
-                    local factor = 1 / (distance * math.tan(fovRad / 2)) * 1000
-                    local width = math.clamp(factor * 0.6, 10, 150)
-                    local height = math.clamp(factor, 15, 200)
+                slot.box.Position = Vector2.new(screenX - (width / 2), screenY - (height / 2))
+                slot.box.Size = Vector2.new(width, height)
+                slot.box.Visible = true
 
-                    slot.box.Position = Vector2.new(screenX - (width / 2), screenY - (height / 2))
-                    slot.box.Size = Vector2.new(width, height)
-                    slot.box.Visible = true
+                slot.name.Text = npc.Name
+                slot.name.Position = Vector2.new(screenX, screenY - (height / 2) - DEFAULT_TEXT_SIZE - 2)
+                slot.name.Visible = true
 
-                    slot.name.Text = npc.Name
-                    slot.name.Position = Vector2.new(screenX, screenY - (height / 2) - DEFAULT_TEXT_SIZE - 2)
-                    slot.name.Visible = true
-
-                    if myRootPart then
-                        local realDistance = math.floor((myRootPart.Position - npcPos).Magnitude)
-                        slot.distance.Text = tostring(realDistance) .. "m"
-                    else
-                        slot.distance.Text = "NPC"
-                    end
-                    slot.distance.Position = Vector2.new(screenX, screenY + (height / 2) + 4)
-                    slot.distance.Visible = true
+                if myRootPart then
+                    local realDistance = math.floor((myRootPart.Position - npcPos).Magnitude)
+                    slot.distance.Text = tostring(realDistance) .. "m"
+                else
+                    slot.distance.Text = "NPC"
                 end
+                slot.distance.Position = Vector2.new(screenX, screenY + (height / 2) + 4)
+                slot.distance.Visible = true
             end
         end
     end
@@ -253,4 +256,4 @@ renderConnection = RunService.RenderStepped:Connect(function()
     lastDrawnSlots = currentSlotIndex
 end)
 
-print("[Havoc Project] Custom Render Engine Loaded.")
+print("[Havoc Project] Pure projection matrix engine operational.")
