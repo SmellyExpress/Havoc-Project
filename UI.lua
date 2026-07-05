@@ -5,7 +5,7 @@ local HttpService = game:GetService("HttpService")
 local Camera      = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
-local DEBUG = true   -- Keep true for debugging
+local DEBUG = true   -- Keep true
 
 local DEF = {
     havoc_esp_enabled     = true,
@@ -20,11 +20,9 @@ local DEF = {
 
 local AIM_DEF = {
     enabled   = false,
-    key       = 0x02,          -- RMB
-    key_type  = "hold",
     fov       = 180,
     smooth    = 6.0,
-    hitbox    = 0,             -- 0=Head, 1=Torso, 2=Nearest
+    hitbox    = 0,
     dist_max  = 1500,
 }
 
@@ -50,7 +48,7 @@ local function uiColor(key, fallback)
     return fallback
 end
 
--- ===== FOG OFFSETS =====
+-- ===== FOG OFFSETS (unchanged) =====
 local _off = {}
 pcall(function()
     local res = game:HttpGet("https://offsets.imtheo.lol/Offsets.json")
@@ -307,7 +305,6 @@ local function getCharacters()
 end
 
 -- ===== AIMBOT FUNCTIONS =====
-
 local function getBestTarget()
     local cam = Camera
     if not cam then return nil end
@@ -319,7 +316,15 @@ local function getBestTarget()
     local hitboxMode = uiGet("aim_hitbox", 0)
 
     local all = getCharacters()
-    if DEBUG then print(string.format("[Aimbot] Found %d characters", #all)) end
+    if DEBUG then
+        print(string.format("[Aimbot] Found %d characters", #all))
+        for i, entry in ipairs(all) do
+            local name = entry.model and entry.model.Name or "unknown"
+            local pos = entry.hrp and entry.hrp.Position
+            local dist = pos and (camPos - pos).Magnitude or 0
+            print(string.format("  %d: %s, dist=%.1f", i, name, dist))
+        end
+    end
     if #all == 0 then return nil end
 
     local best = nil
@@ -327,15 +332,9 @@ local function getBestTarget()
 
     for _, entry in ipairs(all) do
         local rootPart = entry.hrp
-        if not rootPart then
-            if DEBUG then print("[Aimbot] Skipping character with no hrp") end
-            goto continue
-        end
+        if not rootPart then goto continue end
         local ok, rootPos = pcall(function() return rootPart.Position end)
-        if not ok or not rootPos then
-            if DEBUG then print("[Aimbot] Failed to get position for", entry.model and entry.model.Name or "unknown") end
-            goto continue
-        end
+        if not ok or not rootPos then goto continue end
 
         local dist = (camPos - rootPos).Magnitude
         if dist <= maxDist then
@@ -366,10 +365,12 @@ local function getBestTarget()
         ::continue::
     end
 
-    if DEBUG and best then
-        print(string.format("[Aimbot] Target: %s, dist: %.1f, angle: %.1f°", best.model.Name, best.distance, best.angle))
-    elseif DEBUG and not best then
-        print("[Aimbot] No target in FOV/distance.")
+    if DEBUG then
+        if best then
+            print(string.format("[Aimbot] SELECTED: %s, dist=%.1f, angle=%.1f°", best.model.Name, best.distance, best.angle))
+        else
+            print("[Aimbot] No target selected.")
+        end
     end
     return best
 end
@@ -382,20 +383,9 @@ pcall(function()
 end)
 
 local function aimAtTarget(target, smoothFactor)
-    if not target then
-        if DEBUG then print("[Aimbot] aimAtTarget called with nil target") end
-        return
-    end
-    if not target.position then
-        if DEBUG then print("[Aimbot] target.position is nil") end
-        return
-    end
-
+    if not target or not target.position then return end
     local screenPos, onScreen = worldToScreen(target.position)
-    if not onScreen then
-        if DEBUG then print("[Aimbot] Target off-screen") end
-        return
-    end
+    if not onScreen then return end
 
     local vp = Camera.ViewportSize
     local targetScreen = Vector2.new(
@@ -404,16 +394,11 @@ local function aimAtTarget(target, smoothFactor)
     )
 
     local newPos = currentMousePos:Lerp(targetScreen, smoothFactor)
-
-    -- Use Matcha's absolute mouse move
     mousemoveabs(math.floor(newPos.X), math.floor(newPos.Y))
-
     currentMousePos = newPos
 end
 
 -- ===== UI CREATION =====
-local aimKey = nil
-
 if typeof(UI) == "table" and UI.AddTab then
     UI.AddTab("HAVOC ESP", function(tab)
         local sec = tab:Section("AI ESP", "Left", nil, 260)
@@ -428,8 +413,6 @@ if typeof(UI) == "table" and UI.AddTab then
 
         local aim = tab:Section("Aimbot", "Left", nil, 260)
         aim:Toggle("aim_enabled", "Enabled", AIM_DEF.enabled)
-        aimKey = aim:Keybind("aim_key", AIM_DEF.key, AIM_DEF.key_type)
-        aimKey:AddToHotkey("Aimbot", "aim_enabled")
         aim:SliderInt("aim_fov", "Field of View (deg)", 1, 360, AIM_DEF.fov)
         aim:SliderFloat("aim_smooth", "Smoothing", 0.1, 20.0, AIM_DEF.smooth, "%.1f")
         aim:Combo("aim_hitbox", "Hitbox", {"Head", "Torso", "Nearest"}, AIM_DEF.hitbox)
@@ -514,7 +497,7 @@ renderConn = RunService.RenderStepped:Connect(function()
 
         for _, it in ipairs(espItems) do
             if slot >= MAX_SLOTS then break end
-            if not it or not it.part then continue end  -- safety check
+            if not it or not it.part then continue end
 
             local ok, rootPos = pcall(function() return it.part.Position end)
             if ok and rootPos then
@@ -568,16 +551,12 @@ renderConn = RunService.RenderStepped:Connect(function()
 
     -- ---- AIMBOT ----
     local aimEnabled = uiGet("aim_enabled", false)
-    local keyActive = aimKey and aimKey:IsEnabled()
-
-    -- For testing, you can also force activation with a key like F (0x46) regardless of UI
-    -- Uncomment the line below to override:
-    -- keyActive = keyActive or iskeypressed(0x46)  -- F key
+    -- Use RMB (mouse2) and F key as fallback
+    local keyActive = ismouse2pressed() or iskeypressed(0x46)  -- 0x46 = F
 
     if DEBUG and (os.clock() - lastAimPrint) >= 2 then
         lastAimPrint = os.clock()
-        print(string.format("[Aimbot Debug] aimEnabled=%s, keyActive=%s, aimKey exists=%s", 
-            tostring(aimEnabled), tostring(keyActive), tostring(aimKey ~= nil)))
+        print(string.format("[Aimbot Debug] aimEnabled=%s, keyActive=%s", tostring(aimEnabled), tostring(keyActive)))
     end
 
     if aimEnabled and keyActive then
