@@ -218,11 +218,13 @@ renderConnection = RunService.RenderStepped:Connect(function()
 
         local npcRoot = npc:FindFirstChild("HumanoidRootPart") or npc:FindFirstChild("Head")
         if npcRoot then
-            local npcPos = npcRoot.Position
+            -- FIXED: Dynamically capture bounding coordinates instead of using static V3 vectors
+            local cframe, size = npc:GetBoundingBox()
+            local topWorld = (cframe * CFrame.new(0, size.Y / 2, 0)).Position
+            local botWorld = (cframe * CFrame.new(0, -size.Y / 2, 0)).Position
             
-            -- Call native environment function with vertical spatial offset offsets
-            local topPos, topOn = worldToScreen(npcPos + V3_HEAD)
-            local botPos, botOn = worldToScreen(npcPos - V3_FOOT)
+            local topPos, topOn = worldToScreen(topWorld)
+            local botPos, botOn = worldToScreen(botWorld)
 
             if topOn and botOn then
                 currentSlotIndex = currentSlotIndex + 1
@@ -231,7 +233,7 @@ renderConnection = RunService.RenderStepped:Connect(function()
                 -- Box sizing derivations from screen space calculations
                 local height = math.abs(botPos.Y - topPos.Y)
                 if height < 1 then height = 1 end
-                local width = height * 0.5
+                local width = height * 0.6 -- Slightly scaled for bounding box dimensions
                 local boxX = topPos.X - width * 0.5
                 local boxY = topPos.Y
 
@@ -245,7 +247,7 @@ renderConnection = RunService.RenderStepped:Connect(function()
 
                 -- Range metric calculation
                 if myRootPart then
-                    local realDistance = math.floor((myRootPart.Position - npcPos).Magnitude)
+                    local realDistance = math.floor((myRootPart.Position - npcRoot.Position).Magnitude)
                     slot.distance.Text = tostring(realDistance) .. "m"
                 else
                     slot.distance.Text = "NPC"
