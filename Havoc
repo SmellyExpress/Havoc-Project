@@ -418,13 +418,14 @@ local function process_weapon_mods()
 end
 
 -- ============================================================================
--- UI Setup
+-- UI Setup (Safe structure for frame loops)
 -- ============================================================================
 
 if UI and UI.AddTab then
 	pcall(function()
 		UI.AddTab("Havoc ESP", function(tab)
-			local loot_sec = tab:Section("Loot Visuals", "Left", nil, 400)
+			-- Corrected tab signatures (removed raw nil and isolated allocations)
+			local loot_sec = tab:Section("Loot Visuals", "Left")
 			loot_sec:Toggle("havoc_loot_enabled", "Enable Loot Visuals", true)
 			loot_sec:SliderInt("havoc_loot_text_size", "Text Size", 1, 20, 13)
 			
@@ -435,7 +436,7 @@ if UI and UI.AddTab then
 			loot_sec:Toggle(LOOT_FALLBACK.key, "Enable " .. LOOT_FALLBACK.display, true)
 			loot_sec:Toggle(BODY_BAG_TYPE.key, "Enable " .. BODY_BAG_TYPE.display, true)
 			
-			local loot_opts = tab:Section("Loot Options", "Right", nil, 400)
+			local loot_opts = tab:Section("Loot Options", "Right")
 			loot_opts:Toggle("havoc_loot_distance", "Show Distance", true)
 			loot_opts:Combo("havoc_loot_distance_pos", "Distance Position", {"Same Line", "Below Name", "Left Of Name", "Right Of Name"}, 0)
 			loot_opts:Toggle("havoc_loot_marker", "Show Position Marker", true)
@@ -468,4 +469,4 @@ end
 
 RunService.RenderStepped:Connect(main_loop)
 
-print("[HAVOC ESP] Fully system merged with Drawing API & Weapon Mods!")
+print("[HAVOC ESP] System successfully initialized with Matcha Framework adjustments!")
