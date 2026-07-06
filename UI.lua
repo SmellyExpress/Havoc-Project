@@ -2,6 +2,7 @@ local RunService  = game:GetService("RunService")
 local Players     = game:GetService("Players")
 local Lighting    = game:GetService("Lighting")
 local HttpService = game:GetService("HttpService")
+local UserInputService = game:GetService("UserInputService")
 local Camera      = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
@@ -20,7 +21,7 @@ local DEF = {
 
 local AIM_DEF = {
     enabled  = false,
-    key      = 0x02,
+    key      = 0x02, -- 0x02 is Right Mouse Button (RMB)
     key_type = "hold",
     fov      = 180,
     smooth   = 6.0,
@@ -121,10 +122,7 @@ local function restoreFog()
     end)
 end
 
--- Force cleanup of previous loops and drawings
-if _G.HAVOC_ESP_CLEANUP then 
-    pcall(_G.HAVOC_ESP_CLEANUP) 
-end
+if _G.HAVOC_ESP_CLEANUP then pcall(_G.HAVOC_ESP_CLEANUP) end
 
 local running  = true
 local drawings = {}
@@ -304,14 +302,12 @@ end
 
 local aimKey = nil
 
--- Safely clear previous internal UI states if the UI library has a cleanup method
 if typeof(UI) == "table" then
     if UI.Unload then pcall(UI.Unload) end
     if UI.Clear then pcall(UI.Clear) end
 end
 
 if typeof(UI) == "table" and UI.AddTab then
-    -- Using pcall to prevent partial rendering failures if a duplicate tab error occurs
     pcall(function()
         UI.AddTab("HAVOC ESP", function(tab)
             local sec = tab:Section("AI ESP", "Left", nil, 260)
@@ -385,9 +381,15 @@ local function getBestAimTarget()
     local bestAngle = 1e9
 
     for _, it in ipairs(espItems) do
-        local part = it.part
-        if part then
-            local ok, pos = pcall(function() return part.Position end)
+        local basePart = it.part
+        if basePart and basePart.Parent then
+            -- Target standard body parts dynamically (Head -> Torso -> HRP fallback)
+            local targetPart = basePart.Parent:FindFirstChild("Head") 
+                or basePart.Parent:FindFirstChild("UpperTorso") 
+                or basePart.Parent:FindFirstChild("Torso") 
+                or basePart
+            
+            local ok, pos = pcall(function() return targetPart.Position end)
             if ok and pos then
                 local dist = (camPos - pos).Magnitude
                 if dist <= maxDist then
@@ -400,7 +402,7 @@ local function getBestAimTarget()
                             bestAngle = angle
                             best = {
                                 position = pos,
-                                part = part,
+                                part = targetPart,
                                 name = it.name,
                                 distance = dist,
                                 angle = angle
@@ -414,28 +416,33 @@ local function getBestAimTarget()
     return best
 end
 
-local currentMousePos = Vector2.new()
-pcall(function()
-    local vp = Camera.ViewportSize
-    currentMousePos = Vector2.new(vp.X / 2, vp.Y / 2)
-end)
-
 local function aimAtTarget(target, smoothFactor)
     if not target or not target.position then return end
     local screenPos, onScreen = worldToScreen(target.position)
     if not onScreen then return end
 
-    local vp = Camera.ViewportSize
-    local targetScreen = Vector2.new(
-        math.max(0, math.min(screenPos.X, vp.X)),
-        math.max(0, math.min(screenPos.Y, vp.Y))
-    )
+    -- Fetch absolute current physical cursor position using native UserInputService
+    local mousePos = UserInputService:GetMouseLocation()
+    local targetScreen = Vector2.new(screenPos.X, screenPos.Y)
 
-    local newPos = currentMousePos:Lerp(targetScreen, smoothFactor)
+    -- Interpolate physical positions seamlessly inside Roblox viewport coords
+    local newPos = mousePos:Lerp(targetScreen, smoothFactor)
     if mousemoveabs then
         mousemoveabs(math.floor(newPos.X), math.floor(newPos.Y))
     end
-    currentMousePos = newPos
+end
+
+-- Native physical check for the hotkey using Matcha API documentation
+local function checkHotkeyActive()
+    local key = uiGet("aim_key", AIM_DEF.key)
+    if key == 0x01 then
+        return ismouse1pressed and ismouse1pressed()
+    elseif key == 0x02 then
+        return ismouse2pressed and ismouse2pressed()
+    elseif iskeypressed then
+        return iskeypressed(key)
+    end
+    return false
 end
 
 local lastDrawn = 0
@@ -517,15 +524,12 @@ renderConn = RunService.RenderStepped:Connect(function()
     for i = slot + 1, lastDrawn do hideSlot(slots[i]) end
     lastDrawn = slot
 
+    -- Execution checking native background activity rules 
     local aimEnabled = uiGet("aim_enabled", false)
-    local keyActive = false
-    pcall(function()
-        if aimKey and aimKey.IsEnabled then
-            keyActive = aimKey:IsEnabled()
-        end
-    end)
+    local keyActive = checkHotkeyActive()
+    local isForeground = (isrbxactive == nil) or isrbxactive()
 
-    if aimEnabled and keyActive then
+    if aimEnabled and keyActive and isForeground then
         local smoothVal = uiGet("aim_smooth", 6.0)
         local factor = math.max(0.01, math.min(0.99, 1 / (smoothVal * 0.5 + 1)))
         local target = getBestAimTarget()
