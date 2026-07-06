@@ -1,3 +1,10 @@
+local RunService  = game:GetService("RunService")
+local Players     = game:GetService("Players")
+local Camera      = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+local TEXT_SIZE = 13
+
 -- ============================================================================
 -- Loot Configuration
 -- ============================================================================
@@ -62,123 +69,244 @@ local function categorize_loot(name)
 end
 
 -- ============================================================================
--- Config System with Clipboard
+-- Loot Collection & Caching
 -- ============================================================================
 
-local CONFIG_VERSION = 1
+local LOOT_SCAN_INTERVAL = 30.0
+local LOOT_SCAN_DEPTH = 8
+local FOLDER_POLL_INTERVAL = 0.25
 
--- All UI keys that should be saved
-local CONFIG_KEYS = {
-	-- Loot Visuals
-	"havoc_loot_enabled",
-	"havoc_loot_text_size",
-	"havoc_loot_distance",
-	"havoc_loot_distance_pos",
-	"havoc_loot_marker",
-	"havoc_loot_filter",
-	"havoc_loot_max_distance",
-	
-	-- Weapon Mods
-	"havoc_no_recoil",
-	"havoc_no_spread",
-	"havoc_no_sway",
-	"havoc_fast_vel",
-}
+local function get_loot_info(model)
+	local data = model:FindFirstChild("data")
+	if not data or data.ClassName ~= "Configuration" then return nil end
 
--- Add all loot type toggles
-for i = 1, #LOOT_TYPES do
-	table.insert(CONFIG_KEYS, LOOT_TYPES[i].key)
+	local is_open = data:FindFirstChild("isOpen")
+	local is_locked = data:FindFirstChild("isLocked")
+	if not (is_open and is_locked) then return nil end
+
+	return is_open, is_locked
 end
-table.insert(CONFIG_KEYS, LOOT_FALLBACK.key)
-table.insert(CONFIG_KEYS, BODY_BAG_TYPE.key)
 
-local function save_config()
-	local config = {
-		version = CONFIG_VERSION,
-		timestamp = os.time(),
-		values = {}
+local loot_by_model = {}
+
+local function get_or_create_loot(model, root, category, is_open_inst, is_locked_inst)
+	local entry = loot_by_model[model]
+	if entry then return entry end
+
+	local ok_pos, pos = pcall(function() return root.Position end)
+	entry = {
+		model = model,
+		root = root,
+		pos = ok_pos and pos or nil,
+		is_open_inst = is_open_inst,
+		is_locked_inst = is_locked_inst,
+		is_open = nil,
+		is_locked = nil,
+		category = category,
 	}
-	
-	-- Collect all UI values
-	for i = 1, #CONFIG_KEYS do
-		local key = CONFIG_KEYS[i]
-		local value = UI.GetValue(key)
-		if value ~= nil then
-			config.values[key] = value
-		end
-	end
-	
-	-- Convert to JSON
-	local json_str = game:GetService("HttpService"):JSONEncode(config)
-	
-	-- Copy to clipboard
-	setclipboard(json_str)
-	
-	print("[HAVOC] ✓ Config copied to clipboard!")
-	print("[HAVOC] Total values saved: " .. #CONFIG_KEYS)
+	loot_by_model[model] = entry
+	return entry
 end
 
-local function load_config()
-	-- Get from clipboard
-	local clipboard = nil
-	
-	-- Try getclipboard()
-	if getclipboard then
-		clipboard = getclipboard()
-	end
-	
-	if not clipboard or clipboard == "" then
-		print("[HAVOC] ✗ ERROR: Clipboard is empty!")
-		print("[HAVOC] Copy a config to clipboard first, then click Load Config again")
-		return
-	end
-	
-	print("[HAVOC] Reading from clipboard... (" .. #clipboard .. " bytes)")
-	
-	-- Try to decode JSON
-	local config = nil
-	local success = pcall(function()
-		config = game:GetService("HttpService"):JSONDecode(clipboard)
-	end)
-	
-	if not success or not config then
-		print("[HAVOC] ✗ ERROR: Invalid JSON format!")
-		print("[HAVOC] Make sure you copied a valid config JSON")
-		return
-	end
-	
-	if not config.values then
-		print("[HAVOC] ✗ ERROR: Invalid config structure!")
-		return
-	end
-	
-	-- Apply all values
-	local applied_count = 0
-	local failed_count = 0
-	
-	for key, value in pairs(config.values) do
-		local ok = pcall(function()
-			UI.SetValue(key, value)
-		end)
-		if ok then
-			applied_count = applied_count + 1
-		else
-			failed_count = failed_count + 1
+local function collect_loot(container, out, depth)
+	if depth > LOOT_SCAN_DEPTH then return end
+
+	local ok, children = pcall(function() return container:GetChildren() end)
+	if not ok or not children then return end
+
+	for i = 1, #children do
+		local child = children[i]
+		local cls = child.ClassName
+
+		if cls == "Model" then
+			local is_open, is_locked = get_loot_info(child)
+			if is_open then
+				local root = child:FindFirstChildWhichIsA("BasePart")
+				if root then
+					out[#out + 1] = get_or_create_loot(child, root, categorize_loot(child.Name), is_open, is_locked)
+				end
+			else
+				collect_loot(child, out, depth + 1)
+			end
+		elseif cls == "Folder" or cls == "WorldModel" then
+			collect_loot(child, out, depth + 1)
 		end
 	end
-	
-	print("[HAVOC] ✓ Config loaded successfully!")
-	print("[HAVOC] Values applied: " .. applied_count .. "/" .. #CONFIG_KEYS)
-	if failed_count > 0 then
-		print("[HAVOC] ⚠ Values that failed: " .. failed_count)
+end
+
+local buildings_folder = nil
+
+local function get_buildings_folder()
+	if not buildings_folder then
+		buildings_folder = game.Workspace:FindFirstChild("Buildings")
 	end
-	if config.timestamp then
-		print("[HAVOC] Config saved at: " .. os.date("%Y-%m-%d %H:%M:%S", config.timestamp))
+	return buildings_folder
+end
+
+local function collect_body_bags(buildings, out)
+	local loots1 = buildings:FindFirstChild("Loots")
+	if not loots1 then return end
+	local loots2 = loots1:FindFirstChild("Loots")
+	if not loots2 then return end
+	local characters = loots2:FindFirstChild("Characters")
+	if not characters then return end
+
+	local ok, children = pcall(function() return characters:GetChildren() end)
+	if not ok or not children then return end
+
+	for i = 1, #children do
+		local child = children[i]
+		if child.ClassName == "Model" then
+			local root = child:FindFirstChildWhichIsA("BasePart")
+			if root then
+				out[#out + 1] = get_or_create_loot(child, root, BODY_BAG_TYPE, nil, nil)
+			end
+		end
+	end
+end
+
+local loot_cache = {}
+local loot_cache_stamp = 0
+
+local function refresh_loot_cache()
+	local now = os.clock()
+	local interval = buildings_folder and LOOT_SCAN_INTERVAL or FOLDER_POLL_INTERVAL
+	if (now - loot_cache_stamp) < interval then return end
+	loot_cache_stamp = now
+
+	local out = {}
+	local buildings = get_buildings_folder()
+	if buildings then
+		local ok, children = pcall(function() return buildings:GetChildren() end)
+		if ok and children then
+			for i = 1, #children do
+				local loots = children[i]:FindFirstChild("Loots")
+				if loots then
+					collect_loot(loots, out, 0)
+				end
+			end
+		end
+		collect_body_bags(buildings, out)
+	end
+
+	local new_by_model = {}
+	for i = 1, #out do
+		new_by_model[out[i].model] = out[i]
+	end
+	loot_by_model = new_by_model
+	loot_cache = out
+end
+
+local loot_live_cursor = 1
+
+local function refresh_loot_live()
+	local n = #loot_cache
+	if n == 0 then return end
+
+	if loot_live_cursor > n then loot_live_cursor = 1 end
+
+	local remaining = math.min(60, n)
+	while remaining > 0 do
+		local loot = loot_cache[loot_live_cursor]
+		if loot.is_open_inst then
+			local ok, is_open_val, is_locked_val = pcall(function()
+				return loot.is_open_inst.Value, loot.is_locked_inst.Value
+			end)
+			if ok then
+				loot.is_open = is_open_val
+				loot.is_locked = is_locked_val
+			end
+		end
+
+		loot_live_cursor = loot_live_cursor + 1
+		if loot_live_cursor > n then loot_live_cursor = 1 end
+		remaining = remaining - 1
 	end
 end
 
 -- ============================================================================
--- UI Setup (Matcha API)
+-- Loot Drawing
+-- ============================================================================
+
+local LOOT_MARKER_RADIUS = 3
+local LOOT_MARKER_GAP = 8
+
+local function draw_loot_label(x, y, display_name, locked, dist, show_dist, color, dist_pos, show_marker, text_size)
+	local name_text = display_name
+	if locked then
+		name_text = name_text .. " [Locked]"
+	end
+
+	local dist_text = nil
+	if show_dist then
+		dist_text = string.format("%dm", math.floor(dist))
+		if dist_pos == 0 then
+			name_text = name_text .. " [" .. dist_text .. "]"
+			dist_text = nil
+		end
+	end
+
+	local name_w = draw.GetTextSize(name_text, text_size)
+	local name_x = x - name_w * 0.5
+	local name_y = y - text_size * 0.5
+
+	if show_marker then
+		draw.CircleFilled(x, name_y - LOOT_MARKER_GAP, LOOT_MARKER_RADIUS, color, 12)
+	end
+
+	if dist_text then
+		local dist_w = draw.GetTextSize(dist_text, text_size)
+		if dist_pos == 1 then
+			draw.Text(x - dist_w * 0.5, name_y + text_size + 2, dist_text, color, text_size)
+		elseif dist_pos == 2 then
+			draw.Text(name_x - dist_w - 4, name_y, dist_text, color, text_size)
+		elseif dist_pos == 3 then
+			draw.Text(name_x + name_w + 4, name_y, dist_text, color, text_size)
+		end
+	end
+
+	draw.Text(name_x, name_y, name_text, color, text_size)
+end
+
+local function loot_passes_filter(filter_idx, is_open_val, is_locked_val)
+	if filter_idx == 1 then return is_locked_val == true end
+	if filter_idx == 2 then return is_locked_val ~= true end
+	if filter_idx == 3 then return is_open_val == true end
+	if filter_idx == 4 then return is_open_val ~= true end
+	return true
+end
+
+local function run_loot_visuals(cam_pos)
+	if not UI.GetValue("havoc_loot_enabled") then return end
+
+	local show_dist = UI.GetValue("havoc_loot_distance")
+	local dist_pos = UI.GetValue("havoc_loot_distance_pos")
+	local show_marker = UI.GetValue("havoc_loot_marker")
+	local max_dist = UI.GetValue("havoc_loot_max_distance")
+	local filter_idx = UI.GetValue("havoc_loot_filter")
+	local text_size = UI.GetValue("havoc_loot_text_size")
+
+	for i = 1, #loot_cache do
+		local loot = loot_cache[i]
+
+		if loot.pos and UI.GetValue(loot.category.key) then
+			if loot_passes_filter(filter_idx, loot.is_open, loot.is_locked) then
+				local dist = (cam_pos - loot.pos).Magnitude
+				if dist <= max_dist then
+					local sx, sy, sok = WorldToScreen(loot.pos)
+					if sok then
+						local color = loot.category.color
+						draw_loot_label(sx, sy, loot.category.display, loot.is_locked, dist, show_dist, color,
+							dist_pos, show_marker, text_size)
+					end
+				end
+			end
+		end
+	end
+end
+
+-- ============================================================================
+-- UI Setup
 -- ============================================================================
 
 if UI and UI.AddTab then
@@ -210,26 +338,22 @@ if UI and UI.AddTab then
 			weapon_sec:Toggle("havoc_no_spread", "Enable No Spread", false)
 			weapon_sec:Toggle("havoc_no_sway", "Enable No Sway", false)
 			weapon_sec:Toggle("havoc_fast_vel", "Enable Fast Bullet Velocity", false)
-			
-			-- Config Section
-			local config_sec = tab:Section("Config", "Right")
-			config_sec:Text("Save/Load settings via clipboard")
-			config_sec:Spacing()
-			config_sec:Button("Copy Config", 150, 30, function()
-				save_config()
-			end)
-			config_sec:Button("Paste Config", 150, 30, function()
-				load_config()
-			end)
-			config_sec:Spacing()
-			config_sec:Text("Guides:")
-			config_sec:Text("1. Click 'Copy Config'")
-			config_sec:Text("2. Paste to share/backup")
-			config_sec:Text("3. Later, copy config")
-			config_sec:Text("4. Click 'Paste Config'")
 		end)
 	end)
 end
 
-print("[HAVOC ESP] UI loaded with config system!")
-print("[HAVOC ESP] Ready to save/load configs via clipboard!")
+-- ============================================================================
+-- Main Loop
+-- ============================================================================
+
+local function main_loop()
+	refresh_loot_cache()
+	refresh_loot_live()
+
+	local cam_pos = Camera.Position
+	run_loot_visuals(cam_pos)
+end
+
+RunService.RenderStepped:Connect(main_loop)
+
+print("[HAVOC ESP] Loot visuals system loaded!")
