@@ -363,9 +363,12 @@ local Keys = {
     "aimWeight",
 }
 
+-- Find the cache ONCE at script startup instead of every frame
+local WeaponCache = getgc(Keys)
+
 local function update_weapon_mods()
-    local Cache = getgc(Keys)
-    if not Cache then return end
+    -- Ensure the cache was successfully found before attempting to modify it
+    if not WeaponCache then return end
 
     -- Check UI Toggle States
     local no_recoil = UI.GetValue("havoc_no_recoil")
@@ -373,9 +376,9 @@ local function update_weapon_mods()
     local no_sway   = UI.GetValue("havoc_no_sway")
     local fast_vel  = UI.GetValue("havoc_fast_vel")
 
-    applygc(Cache, {
+    applygc(WeaponCache, {
         -- Recoil
-        vPunchBase = no_recoil and 0 or nil, -- nil or standard game defaults if your applygc handles it
+        vPunchBase = no_recoil and 0 or nil, 
         hPunchBase = no_recoil and 0 or nil,
         
         -- Spread
@@ -396,6 +399,8 @@ end
 -- Main Loop
 -- ============================================================================
 
+local last_mod_update = 0
+
 local function main_loop()
 	refresh_loot_cache()
 	refresh_loot_live()
@@ -403,8 +408,12 @@ local function main_loop()
 	local cam_pos = Camera.Position
 	run_loot_visuals(cam_pos)
 	
-	-- Apply gun mods every cycle
-	pcall(update_weapon_mods)
+	-- Throttle the modifications check to run every 0.5 seconds instead of every frame
+	local now = os.clock()
+	if (now - last_mod_update) > 0.5 then
+		last_mod_update = now
+		pcall(update_weapon_mods)
+	end
 end
 
 RunService.RenderStepped:Connect(main_loop)
