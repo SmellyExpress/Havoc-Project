@@ -103,7 +103,9 @@ local function save_config()
 	for i = 1, #CONFIG_KEYS do
 		local key = CONFIG_KEYS[i]
 		local value = UI.GetValue(key)
-		config.values[key] = value
+		if value ~= nil then
+			config.values[key] = value
+		end
 	end
 	
 	-- Convert to JSON
@@ -112,45 +114,67 @@ local function save_config()
 	-- Copy to clipboard
 	setclipboard(json_str)
 	
-	print("[HAVOC] Config copied to clipboard!")
+	print("[HAVOC] ✓ Config copied to clipboard!")
 	print("[HAVOC] Total values saved: " .. #CONFIG_KEYS)
 end
 
 local function load_config()
 	-- Get from clipboard
-	local clipboard = getclipboard()
+	local clipboard = nil
+	
+	-- Try getclipboard()
+	if getclipboard then
+		clipboard = getclipboard()
+	end
 	
 	if not clipboard or clipboard == "" then
-		print("[HAVOC] ERROR: Clipboard is empty!")
+		print("[HAVOC] ✗ ERROR: Clipboard is empty!")
+		print("[HAVOC] Copy a config to clipboard first, then click Load Config again")
 		return
 	end
 	
-	local success, config = pcall(function()
-		return game:GetService("HttpService"):JSONDecode(clipboard)
+	print("[HAVOC] Reading from clipboard... (" .. #clipboard .. " bytes)")
+	
+	-- Try to decode JSON
+	local config = nil
+	local success = pcall(function()
+		config = game:GetService("HttpService"):JSONDecode(clipboard)
 	end)
 	
-	if not success then
-		print("[HAVOC] ERROR: Invalid JSON in clipboard!")
+	if not success or not config then
+		print("[HAVOC] ✗ ERROR: Invalid JSON format!")
+		print("[HAVOC] Make sure you copied a valid config JSON")
 		return
 	end
 	
 	if not config.values then
-		print("[HAVOC] ERROR: Invalid config format!")
+		print("[HAVOC] ✗ ERROR: Invalid config structure!")
 		return
 	end
 	
 	-- Apply all values
 	local applied_count = 0
+	local failed_count = 0
+	
 	for key, value in pairs(config.values) do
-		pcall(function()
+		local ok = pcall(function()
 			UI.SetValue(key, value)
-			applied_count = applied_count + 1
 		end)
+		if ok then
+			applied_count = applied_count + 1
+		else
+			failed_count = failed_count + 1
+		end
 	end
 	
-	print("[HAVOC] Config loaded successfully!")
-	print("[HAVOC] Values applied: " .. applied_count)
-	print("[HAVOC] Config timestamp: " .. os.date("%Y-%m-%d %H:%M:%S", config.timestamp))
+	print("[HAVOC] ✓ Config loaded successfully!")
+	print("[HAVOC] Values applied: " .. applied_count .. "/" .. #CONFIG_KEYS)
+	if failed_count > 0 then
+		print("[HAVOC] ⚠ Values that failed: " .. failed_count)
+	end
+	if config.timestamp then
+		print("[HAVOC] Config saved at: " .. os.date("%Y-%m-%d %H:%M:%S", config.timestamp))
+	end
 end
 
 -- ============================================================================
@@ -190,16 +214,22 @@ if UI and UI.AddTab then
 			-- Config Section
 			local config_sec = tab:Section("Config", "Right")
 			config_sec:Text("Save/Load settings via clipboard")
-			config_sec:Button("Save Config", 150, 30, function()
+			config_sec:Spacing()
+			config_sec:Button("Copy Config", 150, 30, function()
 				save_config()
 			end)
-			config_sec:Button("Load Config", 150, 30, function()
+			config_sec:Button("Paste Config", 150, 30, function()
 				load_config()
 			end)
 			config_sec:Spacing()
-			config_sec:Text("Copy JSON from clipboard to share")
+			config_sec:Text("Guides:")
+			config_sec:Text("1. Click 'Copy Config'")
+			config_sec:Text("2. Paste to share/backup")
+			config_sec:Text("3. Later, copy config")
+			config_sec:Text("4. Click 'Paste Config'")
 		end)
 	end)
 end
 
 print("[HAVOC ESP] UI loaded with config system!")
+print("[HAVOC ESP] Ready to save/load configs via clipboard!")
