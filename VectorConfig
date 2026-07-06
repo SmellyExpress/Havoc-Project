@@ -4,15 +4,15 @@ menu.AddTab(TAB, "H", "full")
 
 menu.AddGroup(TAB, "Aimbot", -1)
 
-menu.AddCheckbox(TAB, "Aimbot", "havoc_aimbot_enabled", "Enable Entity Aimbot", false, { key = 5, show_mode = false })
+menu.AddCheckbox(TAB, "Aimbot", "havoc_aimbot_enabled", "Enable Entity Aimbot", true, { key = 5, show_mode = false })
 menu.AddCombo(TAB, "Aimbot", "havoc_aimbot_bone", "Aimbot Bone", { "Head", "Torso" }, 0, { parent = "havoc_aimbot_enabled" })
 menu.AddCombo(TAB, "Aimbot", "havoc_aimbot_target_type", "Aimbot Target Type", { "Closest To Crosshair", "Closest Distance" }, 0,
     { parent = "havoc_aimbot_enabled" })
 menu.AddSliderInt(TAB, "Aimbot", "havoc_aimbot_fov", "Aimbot Field Of View", 10, 500, 100, { parent = "havoc_aimbot_enabled" })
 menu.AddSliderInt(TAB, "Aimbot", "havoc_aimbot_max_distance", "Aimbot Max Distance", 0, 3000, 500, { parent = "havoc_aimbot_enabled" })
-menu.AddCheckbox(TAB, "Aimbot", "havoc_aimbot_draw_fov", "Field Of View Circle", true,
+menu.AddCheckbox(TAB, "Aimbot", "havoc_aimbot_draw_fov", "Field Of View Circle", false,
     { parent = "havoc_aimbot_enabled", colorpicker = { 1.0, 1.0, 1.0, 1.0 } })
-menu.AddCheckbox(TAB, "Aimbot", "havoc_aimbot_target_line", "Target Line", false,
+menu.AddCheckbox(TAB, "Aimbot", "havoc_aimbot_target_line", "Target Line", true,
     { parent = "havoc_aimbot_enabled", colorpicker = { 1.0, 0.3, 0.3, 1.0 } })
 
 menu.AddGroup(TAB, "Entity Visuals")
@@ -109,18 +109,23 @@ menu.AddCheckbox(TAB, "Loot Visuals", "havoc_loot_enabled", "Enable Loot Visuals
 menu.AddSliderInt(TAB, "Loot Visuals", "havoc_loot_text_size", "Text Size", 1, 20, 8, { parent = "havoc_loot_enabled" })
 for i = 1, #LOOT_TYPES do
     local entry = LOOT_TYPES[i]
-    menu.AddCheckbox(TAB, "Loot Visuals", entry.key, "Enable " .. entry.display .. " Visuals", true,
+    -- Changed from true to false so individual items start disabled
+    menu.AddCheckbox(TAB, "Loot Visuals", entry.key, "Enable " .. entry.display .. " Visuals", false,
         { parent = "havoc_loot_enabled", colorpicker = entry.color })
 end
-menu.AddCheckbox(TAB, "Loot Visuals", LOOT_FALLBACK.key, "Enable " .. LOOT_FALLBACK.display .. " Visuals", true,
+-- Changed from true to false
+menu.AddCheckbox(TAB, "Loot Visuals", LOOT_FALLBACK.key, "Enable " .. LOOT_FALLBACK.display .. " Visuals", false,
     { parent = "havoc_loot_enabled", colorpicker = LOOT_FALLBACK.color })
-menu.AddCheckbox(TAB, "Loot Visuals", BODY_BAG_TYPE.key, "Enable " .. BODY_BAG_TYPE.display .. " Visuals", true,
+-- Changed from true to false
+menu.AddCheckbox(TAB, "Loot Visuals", BODY_BAG_TYPE.key, "Enable " .. BODY_BAG_TYPE.display .. " Visuals", false,
     { parent = "havoc_loot_enabled", colorpicker = BODY_BAG_TYPE.color })
 
+-- Kept as false per your configuration
 menu.AddCheckbox(TAB, "Loot Visuals", "havoc_loot_distance", "Show Distance", false, { parent = "havoc_loot_enabled" })
 menu.AddCombo(TAB, "Loot Visuals", "havoc_loot_distance_pos", "Distance Position",
     { "Same Line", "Below Name", "Left Of Name", "Right Of Name" }, 0,
     { parent = "havoc_loot_distance" })
+-- Kept as true so position markers stay enabled
 menu.AddCheckbox(TAB, "Loot Visuals", "havoc_loot_marker", "Show Position Marker", true,
     { parent = "havoc_loot_enabled" })
 menu.AddCombo(TAB, "Loot Visuals", "havoc_loot_filter", "Loot Filter",
