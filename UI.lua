@@ -1,5 +1,6 @@
 local RunService  = game:GetService("RunService")
 local Players     = game:GetService("Players")
+local Lighting    = game:GetService("Lighting")
 local HttpService = game:GetService("HttpService")
 local Camera      = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
@@ -14,6 +15,7 @@ local DEF = {
     havoc_esp_name        = true,
     havoc_esp_distance    = true,
     havoc_esp_tracer      = false,
+    havoc_nofog           = false,
 }
 
 local BOX_COL_DEF = Color3.fromRGB(255, 80, 80)
@@ -38,6 +40,78 @@ local function uiColor(key, fallback)
     return fallback
 end
 
+local _off = {}
+pcall(function()
+    local res = game:HttpGet("https://offsets.imtheo.lol/Offsets.json")
+    local decoded = HttpService:JSONDecode(res)
+    _off = (decoded and decoded.Offsets) or {}
+end)
+
+local function off(section, key, fallback)
+    local s = _off[section]
+    return (s and s[key]) or fallback
+end
+
+local OFF_FOG_END      = off("Lighting",   "FogEnd",   0x13C)
+local OFF_FOG_START    = off("Lighting",   "FogStart", 0x140)
+local OFF_ATMO_DENSITY = off("Atmosphere", "Density",  0x0E8)
+local OFF_ATMO_GLARE   = off("Atmosphere", "Glare",    0x0EC)
+local OFF_ATMO_HAZE    = off("Atmosphere", "Haze",     0x0F0)
+local OFF_ATMO_OFFSET  = off("Atmosphere", "Offset",   0x0F4)
+
+local lightingAddr, atmoAddr = 0, 0
+local origFogEnd, origFogStart = 100000, 0
+local origDensity, origGlare, origHaze, origOffset = 0.3, 0, 0, 0.25
+local fogCaptured = false
+local lastNoFog = false
+
+local function captureFog()
+    fogCaptured = true
+    pcall(function() lightingAddr = Lighting.Address or 0 end)
+    pcall(function() origFogEnd = Lighting.FogEnd; origFogStart = Lighting.FogStart end)
+    local atmo = Lighting:FindFirstChildOfClass("Atmosphere")
+    if atmo then
+        pcall(function() atmoAddr = atmo.Address or 0 end)
+        pcall(function()
+            origDensity = atmo.Density; origGlare = atmo.Glare
+            origHaze    = atmo.Haze;    origOffset = atmo.Offset
+        end)
+    end
+end
+
+local function applyNoFog()
+    if not fogCaptured then captureFog() end
+    if not memory_write then return end
+    pcall(function()
+        if lightingAddr ~= 0 then
+            memory_write("float", lightingAddr + OFF_FOG_END,   9e8)
+            memory_write("float", lightingAddr + OFF_FOG_START, 9e8)
+        end
+        if atmoAddr ~= 0 then
+            memory_write("float", atmoAddr + OFF_ATMO_DENSITY, 0)
+            memory_write("float", atmoAddr + OFF_ATMO_GLARE,   0)
+            memory_write("float", atmoAddr + OFF_ATMO_HAZE,    0)
+            memory_write("float", atmoAddr + OFF_ATMO_OFFSET,  0)
+        end
+    end)
+end
+
+local function restoreFog()
+    if not fogCaptured or not memory_write then return end
+    pcall(function()
+        if lightingAddr ~= 0 then
+            memory_write("float", lightingAddr + OFF_FOG_END,   origFogEnd)
+            memory_write("float", lightingAddr + OFF_FOG_START, origFogStart)
+        end
+        if atmoAddr ~= 0 then
+            memory_write("float", atmoAddr + OFF_ATMO_DENSITY, origDensity)
+            memory_write("float", atmoAddr + OFF_ATMO_GLARE,   origGlare)
+            memory_write("float", atmoAddr + OFF_ATMO_HAZE,    origHaze)
+            memory_write("float", atmoAddr + OFF_ATMO_OFFSET,  origOffset)
+        end
+    end)
+end
+
 if _G.HAVOC_ESP_CLEANUP then pcall(_G.HAVOC_ESP_CLEANUP) end
 
 local running  = true
@@ -59,6 +133,7 @@ _G.HAVOC_ESP_CLEANUP = function()
         pcall(function() obj:Remove() end)
     end
     drawings = {}
+    pcall(restoreFog)
 end
 
 local FONT      = Drawing.Fonts.Monospace or Drawing.Fonts.System
@@ -163,6 +238,7 @@ local function getEyePos()
     return nil
 end
 
+-- Re-purposed recursive collection function that enforces active player blacklisting
 local function collectFrom(inst, myChar, playerNames, out, depth)
     if depth > 8 then return end
     local ok, kids = pcall(function() return inst:GetChildren() end)
@@ -201,6 +277,7 @@ local function getCharacters()
     if (now - charStamp) < CHAR_TTL then return charCache end
     charStamp = now
 
+    -- Dynamically generate lookup map for real player identities
     local playerNames = {}
     for _, p in ipairs(Players:GetPlayers()) do
         playerNames[p.Name] = true
@@ -219,14 +296,17 @@ if typeof(UI) == "table" and UI.AddTab then
     pcall(function()
         UI.AddTab("HAVOC ESP", function(tab)
             local sec = tab:Section("AI ESP", "Left", nil, 260)
-            sec:Toggle("havoc_esp_enabled",  "Enabled",     DEF.havoc_esp_enabled)
-            sec:Toggle("havoc_esp_box",      "Box",         DEF.havoc_esp_box)
-            sec:Toggle("havoc_esp_name",     "Name",        DEF.havoc_esp_name)
-            sec:Toggle("havoc_esp_distance", "Distance",    DEF.havoc_esp_distance)
-            sec:Toggle("havoc_esp_tracer",   "Tracers",     DEF.havoc_esp_tracer)
+            sec:Toggle("havoc_esp_enabled",  "Enabled",    DEF.havoc_esp_enabled)
+            sec:Toggle("havoc_esp_box",      "Box",        DEF.havoc_esp_box)
+            sec:Toggle("havoc_esp_name",     "Name",       DEF.havoc_esp_name)
+            sec:Toggle("havoc_esp_distance", "Distance",   DEF.havoc_esp_distance)
+            sec:Toggle("havoc_esp_tracer",   "Tracers",    DEF.havoc_esp_tracer)
             sec:SliderInt("havoc_esp_dist_max",    "Max Distance",      50, 3000, DEF.havoc_esp_dist_max)
             sec:SliderInt("havoc_esp_update_rate", "Update Rate (fps)",  5,   60, DEF.havoc_esp_update_rate)
             sec:ColorPicker("havoc_esp_boxcol", "Box Color", 255 / 255, 80 / 255, 80 / 255)
+
+            local vis = tab:Section("Visuals", "Right", nil, 260)
+            vis:Toggle("havoc_nofog", "No Fog", DEF.havoc_nofog)
         end)
     end)
 end
@@ -268,6 +348,14 @@ local dbgClock  = os.clock()
 
 renderConn = RunService.RenderStepped:Connect(function()
     if not running then return end
+
+    local noFog = uiGet("havoc_nofog", DEF.havoc_nofog)
+    if noFog then
+        applyNoFog()
+    elseif lastNoFog then
+        restoreFog()
+    end
+    lastNoFog = noFog
 
     if not uiGet("havoc_esp_enabled", DEF.havoc_esp_enabled) then
         for i = 1, lastDrawn do hideSlot(slots[i]) end
