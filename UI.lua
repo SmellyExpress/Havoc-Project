@@ -5,7 +5,7 @@ local HttpService = game:GetService("HttpService")
 local Camera      = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
-local DEBUG = false
+local DEBUG = true
 
 local DEF = {
     havoc_esp_enabled     = true,
