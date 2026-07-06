@@ -5,7 +5,7 @@ local HttpService = game:GetService("HttpService")
 local Camera      = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
-local DEBUG = false   -- set true for console logs
+local DEBUG = false
 
 local DEF = {
     havoc_esp_enabled     = true,
@@ -18,15 +18,14 @@ local DEF = {
     havoc_nofog           = false,
 }
 
--- Aimbot defaults
+-- ====== NEW: Aimbot defaults ======
 local AIM_DEF = {
-    enabled   = false,
-    key       = 0x02,          -- RMB by default
-    key_type  = "hold",
-    fov       = 180,
-    smooth    = 6.0,
-    hitbox    = 0,             -- 0=Head, 1=Torso, 2=Nearest
-    dist_max  = 1500,
+    enabled  = false,
+    key      = 0x02,      -- RMB by default
+    key_type = "hold",
+    fov      = 180,
+    smooth   = 6.0,
+    dist_max = 1500,
 }
 
 local BOX_COL_DEF = Color3.fromRGB(255, 80, 80)
@@ -302,115 +301,11 @@ local function getCharacters()
     return out
 end
 
--- ========== AIMBOT FUNCTIONS ==========
-
--- Returns true if the given model belongs to a real player
-local function isPlayerCharacter(model)
-    if not model then return false end
-    -- Check via Players service
-    local player = Players:GetPlayerFromCharacter(model)
-    if player then return true end
-    -- Also check by name (fallback)
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p.Name == model.Name then
-            return true
-        end
-    end
-    return false
-end
-
-local function getBestTarget()
-    local cam = Camera
-    if not cam then return nil end
-    local camPos = cam.CFrame.Position
-    local lookDir = cam.CFrame.LookVector
-
-    local maxDist = uiGet("aim_dist_max", 1500)
-    local fovDeg = uiGet("aim_fov", 180)
-    local hitboxMode = uiGet("aim_hitbox", 0)
-
-    local all = getCharacters()
-    if #all == 0 then return nil end
-
-    local best = nil
-    local bestAngle = 1e9
-
-    for _, entry in ipairs(all) do
-        local rootPart = entry.hrp
-        if not rootPart then
-            goto continue
-        end
-        -- Skip if this is a player character (we only want NPCs)
-        if isPlayerCharacter(entry.model) then
-            if DEBUG then print("[Aimbot] Skipping player:", entry.model.Name) end
-            goto continue
-        end
-
-        local ok, rootPos = pcall(function() return rootPart.Position end)
-        if ok and rootPos then
-            local dist = (camPos - rootPos).Magnitude
-            if dist <= maxDist then
-                local aimPos = rootPos
-                if hitboxMode == 0 then
-                    aimPos = rootPos + Vector3.new(0, 2.6, 0)
-                end
-
-                local dirToTarget = (aimPos - camPos).Unit
-                local dot = lookDir:Dot(dirToTarget)
-                local clamped = math.max(-1, math.min(1, dot))
-                local angle = math.deg(math.acos(clamped))
-
-                if angle <= fovDeg then
-                    if angle < bestAngle then
-                        bestAngle = angle
-                        best = {
-                            position = aimPos,
-                            rootPos = rootPos,
-                            part = rootPart,
-                            model = entry.model,
-                            distance = dist,
-                            angle = angle
-                        }
-                    end
-                end
-            end
-        end
-        ::continue::
-    end
-
-    if DEBUG and best then
-        print(string.format("[Aimbot] Target: %s (%.1f studs, %.1f°)", best.model.Name, best.distance, best.angle))
-    end
-    return best
-end
-
-local currentMousePos = Vector2.new()
-pcall(function()
-    local vp = Camera.ViewportSize
-    currentMousePos = Vector2.new(vp.X / 2, vp.Y / 2)
-end)
-
-local function aimAtTarget(target, smoothFactor)
-    if not target or not target.position then return end
-    local screenPos, onScreen = worldToScreen(target.position)
-    if not onScreen then return end
-
-    local vp = Camera.ViewportSize
-    local targetScreen = Vector2.new(
-        math.max(0, math.min(screenPos.X, vp.X)),
-        math.max(0, math.min(screenPos.Y, vp.Y))
-    )
-
-    local newPos = currentMousePos:Lerp(targetScreen, smoothFactor)
-    mousemoveabs(math.floor(newPos.X), math.floor(newPos.Y))
-    currentMousePos = newPos
-end
-
--- ========== UI CREATION ==========
-
-local aimKey = nil   -- store the keybind widget
+-- ====== NEW: Aimbot UI and logic ======
+local aimKey = nil   -- will hold the keybind widget
 
 if typeof(UI) == "table" and UI.AddTab then
+    -- removed pcall to avoid hiding errors
     UI.AddTab("HAVOC ESP", function(tab)
         local sec = tab:Section("AI ESP", "Left", nil, 260)
         sec:Toggle("havoc_esp_enabled",  "Enabled",    DEF.havoc_esp_enabled)
@@ -422,22 +317,19 @@ if typeof(UI) == "table" and UI.AddTab then
         sec:SliderInt("havoc_esp_update_rate", "Update Rate (fps)",  5,   60, DEF.havoc_esp_update_rate)
         sec:ColorPicker("havoc_esp_boxcol", "Box Color", 255 / 255, 80 / 255, 80 / 255)
 
-        -- Aimbot section
+        -- NEW: Aimbot section
         local aim = tab:Section("Aimbot", "Left", nil, 260)
         aim:Toggle("aim_enabled", "Enabled", AIM_DEF.enabled)
         aimKey = aim:Keybind("aim_key", AIM_DEF.key, AIM_DEF.key_type)
         aimKey:AddToHotkey("Aimbot", "aim_enabled")
         aim:SliderInt("aim_fov", "Field of View (deg)", 1, 360, AIM_DEF.fov)
         aim:SliderFloat("aim_smooth", "Smoothing", 0.1, 20.0, AIM_DEF.smooth, "%.1f")
-        aim:Combo("aim_hitbox", "Hitbox", {"Head", "Torso", "Nearest"}, AIM_DEF.hitbox)
         aim:SliderInt("aim_dist_max", "Max Aim Range", 50, 3000, AIM_DEF.dist_max)
 
         local vis = tab:Section("Visuals", "Right", nil, 260)
         vis:Toggle("havoc_nofog", "No Fog", DEF.havoc_nofog)
     end)
 end
-
--- ========== ESP AND AIMBOT LOOP ==========
 
 local espItems = {}
 local snap = { box = true, name = true, dist = true, tracer = false, boxCol = BOX_COL_DEF }
@@ -471,6 +363,77 @@ local function rebuildItems()
     espItems = out
 end
 
+-- ====== NEW: Aimbot helpers ======
+local function getBestAimTarget()
+    local cam = Camera
+    if not cam then return nil end
+    local camPos = cam.CFrame.Position
+    local lookDir = cam.CFrame.LookVector
+
+    local maxDist = uiGet("aim_dist_max", 1500)
+    local fovDeg = uiGet("aim_fov", 180)
+
+    local best = nil
+    local bestAngle = 1e9
+
+    -- We iterate over espItems (already filtered to NPCs)
+    for _, it in ipairs(espItems) do
+        local part = it.part
+        if part then
+            local ok, pos = pcall(function() return part.Position end)
+            if ok and pos then
+                local dist = (camPos - pos).Magnitude
+                if dist <= maxDist then
+                    local dirToTarget = (pos - camPos).Unit
+                    local dot = lookDir:Dot(dirToTarget)
+                    local clamped = math.max(-1, math.min(1, dot))
+                    local angle = math.deg(math.acos(clamped))
+                    if angle <= fovDeg then
+                        if angle < bestAngle then
+                            bestAngle = angle
+                            best = {
+                                position = pos,
+                                part = part,
+                                name = it.name,
+                                distance = dist,
+                                angle = angle
+                            }
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    if DEBUG and best then
+        print(string.format("[Aimbot] Best target: %s (%.1f studs, %.1f°)", best.name, best.distance, best.angle))
+    end
+    return best
+end
+
+local currentMousePos = Vector2.new()
+pcall(function()
+    local vp = Camera.ViewportSize
+    currentMousePos = Vector2.new(vp.X / 2, vp.Y / 2)
+end)
+
+local function aimAtTarget(target, smoothFactor)
+    if not target or not target.position then return end
+    local screenPos, onScreen = worldToScreen(target.position)
+    if not onScreen then return end
+
+    local vp = Camera.ViewportSize
+    local targetScreen = Vector2.new(
+        math.max(0, math.min(screenPos.X, vp.X)),
+        math.max(0, math.min(screenPos.Y, vp.Y))
+    )
+
+    local newPos = currentMousePos:Lerp(targetScreen, smoothFactor)
+    mousemoveabs(math.floor(newPos.X), math.floor(newPos.Y))
+    currentMousePos = newPos
+end
+
+-- ====== Main loop ======
 local lastDrawn = 0
 local dbgClock  = os.clock()
 
@@ -485,88 +448,88 @@ renderConn = RunService.RenderStepped:Connect(function()
     end
     lastNoFog = noFog
 
-    -- ESP
-    if uiGet("havoc_esp_enabled", DEF.havoc_esp_enabled) then
-        local now  = os.clock()
-        local rate = uiGet("havoc_esp_update_rate", DEF.havoc_esp_update_rate)
-        if (now - lastBuild) >= (1 / math.max(1, rate)) then
-            lastBuild = now
-            rebuildItems()
-        end
+    if not uiGet("havoc_esp_enabled", DEF.havoc_esp_enabled) then
+        for i = 1, lastDrawn do hideSlot(slots[i]) end
+        lastDrawn = 0
+        return
+    end
 
-        local vp   = Camera.ViewportSize
-        local slot = 0
+    local now  = os.clock()
+    local rate = uiGet("havoc_esp_update_rate", DEF.havoc_esp_update_rate)
+    if (now - lastBuild) >= (1 / math.max(1, rate)) then
+        lastBuild = now
+        rebuildItems()
+    end
 
-        for _, it in ipairs(espItems) do
-            if slot >= MAX_SLOTS then break end
+    local vp   = Camera.ViewportSize
+    local slot = 0
 
-            local ok, rootPos = pcall(function() return it.part.Position end)
-            if ok and rootPos then
-                local topPos, topOn = worldToScreen(rootPos + V3_HEAD)
-                local botPos, botOn = worldToScreen(rootPos - V3_FOOT)
-                if topOn and botOn then
-                    slot = slot + 1
-                    local s = slots[slot]
-                    hideSlot(s)
+    for _, it in ipairs(espItems) do
+        if slot >= MAX_SLOTS then break end
 
-                    local height = math.abs(botPos.Y - topPos.Y)
-                    if height < 1 then height = 1 end
-                    local width = height * 0.5
-                    local boxX  = topPos.X - width * 0.5
-                    local boxY  = topPos.Y
+        local ok, rootPos = pcall(function() return it.part.Position end)
+        if ok and rootPos then
+            local topPos, topOn = worldToScreen(rootPos + V3_HEAD)
+            local botPos, botOn = worldToScreen(rootPos - V3_FOOT)
+            if topOn and botOn then
+                slot = slot + 1
+                local s = slots[slot]
+                hideSlot(s)
 
-                    if snap.box then
-                        drawBox(s, boxX, boxY, width, height, snap.boxCol)
-                    end
+                local height = math.abs(botPos.Y - topPos.Y)
+                if height < 1 then height = 1 end
+                local width = height * 0.5
+                local boxX  = topPos.X - width * 0.5
+                local boxY  = topPos.Y
 
-                    if snap.name then
-                        s.name.Text     = it.name
-                        s.name.Position = Vector2.new(topPos.X, boxY - TEXT_SIZE - 2)
-                        s.name.Color    = NAME_COL
-                        s.name.Visible  = true
-                    end
+                if snap.box then
+                    drawBox(s, boxX, boxY, width, height, snap.boxCol)
+                end
 
-                    if snap.dist and it.distText then
-                        s.dist.Text     = it.distText
-                        s.dist.Position = Vector2.new(topPos.X, boxY + height + 2)
-                        s.dist.Color    = DIST_COL
-                        s.dist.Visible  = true
-                    end
+                if snap.name then
+                    s.name.Text     = it.name
+                    s.name.Position = Vector2.new(topPos.X, boxY - TEXT_SIZE - 2)
+                    s.name.Color    = NAME_COL
+                    s.name.Visible  = true
+                end
 
-                    if snap.tracer then
-                        s.tracer.From    = Vector2.new(vp.X * 0.5, vp.Y)
-                        s.tracer.To      = Vector2.new(topPos.X, boxY + height)
-                        s.tracer.Color   = TRACER_COL
-                        s.tracer.Visible = true
-                    end
+                if snap.dist and it.distText then
+                    s.dist.Text     = it.distText
+                    s.dist.Position = Vector2.new(topPos.X, boxY + height + 2)
+                    s.dist.Color    = DIST_COL
+                    s.dist.Visible  = true
+                end
+
+                if snap.tracer then
+                    s.tracer.From    = Vector2.new(vp.X * 0.5, vp.Y)
+                    s.tracer.To      = Vector2.new(topPos.X, boxY + height)
+                    s.tracer.Color   = TRACER_COL
+                    s.tracer.Visible = true
                 end
             end
         end
-
-        for i = slot + 1, lastDrawn do hideSlot(slots[i]) end
-        lastDrawn = slot
-
-        if DEBUG and (now - dbgClock) >= 1 then
-            dbgClock = now
-            print(string.format("[HAVOC ESP] items=%d drawn=%d", #espItems, slot))
-        end
-    else
-        for i = 1, lastDrawn do hideSlot(slots[i]) end
-        lastDrawn = 0
     end
 
-    -- Aimbot (uses UI keybind)
+    for i = slot + 1, lastDrawn do hideSlot(slots[i]) end
+    lastDrawn = slot
+
+    -- ====== NEW: Aimbot execution ======
     local aimEnabled = uiGet("aim_enabled", false)
     local keyActive = aimKey and aimKey:IsEnabled()
 
     if aimEnabled and keyActive then
         local smoothVal = uiGet("aim_smooth", 6.0)
         local factor = math.max(0.01, math.min(0.99, 1 / (smoothVal * 0.5 + 1)))
-        local target = getBestTarget()
+        local target = getBestAimTarget()
         if target then
             aimAtTarget(target, factor)
         end
     end
+
+    if DEBUG and (now - dbgClock) >= 1 then
+        dbgClock = now
+        print(string.format("[HAVOC ESP] items=%d drawn=%d", #espItems, slot))
+    end
 end)
 
-print("[HAVOC AI ESP + Aimbot] loaded and synchronized.")
+print("[HAVOC AI ESP] loaded and synchronized.")
