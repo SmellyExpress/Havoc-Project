@@ -3,6 +3,7 @@ local Players     = game:GetService("Players")
 local Lighting    = game:GetService("Lighting")
 local HttpService = game:GetService("HttpService")
 local UserInputService = game:GetService("UserInputService")
+local GuiService  = game:GetService("GuiService")
 local Camera      = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
@@ -21,7 +22,7 @@ local DEF = {
 
 local AIM_DEF = {
     enabled  = false,
-    key      = 0x02, -- 0x02 is Right Mouse Button (RMB)
+    key      = 0x02, -- Right Mouse Button
     key_type = "hold",
     fov      = 180,
     smooth   = 6.0,
@@ -297,7 +298,6 @@ local function getCharacters()
         collectFrom(folder, LocalPlayer and LocalPlayer.Character, playerNames, out, 0)
     end
     
-    -- Sync with Workspace.Ignored.Gibs folder for NPC structures
     local gibs = workspace:FindFirstChild("Ignored") and workspace.Ignored:FindFirstChild("Gibs")
     if gibs then
         collectFrom(gibs, LocalPlayer and LocalPlayer.Character, playerNames, out, 0)
@@ -334,7 +334,7 @@ if typeof(UI) == "table" and UI.AddTab then
                 pcall(function() aimKey:AddToHotkey("Aimbot", "aim_enabled") end)
             end
             aim:SliderInt("aim_fov", "Field of View (deg)", 1, 360, AIM_DEF.fov)
-            aim:SliderFloat("aim_smooth", "Smoothing", 0.1, 20.0, AIM_DEF.smooth, "%.1f")
+            aim:SliderFloat("aim_smooth", "Smoothing", 1.0, 30.0, AIM_DEF.smooth, "%.1f")
             aim:SliderInt("aim_dist_max", "Max Aim Range", 50, 3000, AIM_DEF.dist_max)
 
             local vis = tab:Section("Visuals", "Right", nil, 260)
@@ -392,7 +392,7 @@ local function getBestAimTarget()
         if basePart and basePart.Parent then
             local targetPart = basePart.Parent:FindFirstChild("Head") 
                 or basePart.Parent:FindFirstChild("UpperTorso") 
-                or basePart.Parent:FindFirstChild("Torso") 
+                or basePart.Parent:FindFirstChild("Torso")
                 or basePart
             
             local ok, pos = pcall(function() return targetPart.Position end)
@@ -422,41 +422,56 @@ local function getBestAimTarget()
     return best
 end
 
-local function aimAtTarget(target, smoothFactor)
+-- Integrated Robust Reference Math Step Function
+local function aimStep(delta, smooth, maxStep)
+    local value = delta / smooth
+    if value > maxStep then value = maxStep elseif value < -maxStep then value = -maxStep end
+
+    if math.abs(delta) > 1 and math.abs(value) < 1 then
+        if delta > 0 then return 1 end
+        return -1
+    end
+
+    if value >= 0 then return math.floor(value + 0.5) else return math.ceil(value - 0.5) end
+end
+
+local function aimAtTarget(target, smoothVal)
     if not target or not target.position then return end
     local screenPos, onScreen = worldToScreen(target.position)
     if not onScreen then return end
 
-    -- Fetch viewport boundaries to target the physical center
     local vp = Camera.ViewportSize
-    local center = Vector2.new(vp.X / 2, vp.Y / 2)
-    local targetScreen = Vector2.new(screenPos.X, screenPos.Y)
+    local inset = GuiService:GetGuiInset()
+    local center = Vector2.new(vp.X / 2, (vp.Y / 2) + inset.Y)
 
-    -- Calculate physical relative distance off-center
-    local delta = (targetScreen - center)
+    local dx = screenPos.X - center.X
+    local dy = screenPos.Y - center.Y
 
     if mousemoverel then
-        -- Apply smooth factor transitions relatively 
-        local moveX = delta.X * smoothFactor
-        local moveY = delta.Y * smoothFactor
+        -- Uses the reference clamping logic to ensure sub-pixel deltas never round down to zero
+        local moveX = aimStep(dx, smoothVal, 35)
+        local moveY = aimStep(dy, smoothVal, 35)
 
-        -- Eliminate tiny micro-movements to avoid shaking
-        if math.abs(moveX) > 0.5 or math.abs(moveY) > 0.5 then
-            mousemoverel(math.round(moveX), math.round(moveY))
+        if moveX ~= 0 or moveY ~= 0 then
+            pcall(function() mousemoverel(moveX, moveY) end)
         end
     end
 end
 
 local function checkHotkeyActive()
     local key = uiGet("aim_key", AIM_DEF.key)
+    -- Fallback safety check if UI library tables get wrapped cleanly
+    if type(key) == "table" and key.Value ~= nil then key = key.Value end
+
     if key == 0x01 then
-        return ismouse1pressed and ismouse1pressed()
+        return (ismouse1pressed and ismouse1pressed()) or UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
     elseif key == 0x02 then
-        return ismouse2pressed and ismouse2pressed()
+        return (ismouse2pressed and ismouse2pressed()) or UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
     elseif iskeypressed then
-        return iskeypressed(key)
+        local success, down = pcall(function() return iskeypressed(key) end)
+        if success then return down end
     end
-    return false
+    return UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) -- Ultimate fallback to RMB
 end
 
 local lastDrawn = 0
@@ -544,12 +559,13 @@ renderConn = RunService.RenderStepped:Connect(function()
 
     if aimEnabled and keyActive and isForeground then
         local smoothVal = uiGet("aim_smooth", 6.0)
-        local factor = math.max(0.01, math.min(0.99, 1 / (smoothVal * 0.5 + 1)))
+        if type(smoothVal) ~= "number" then smoothVal = 6.0 end
+        
         local target = getBestAimTarget()
         if target then
-            aimAtTarget(target, factor)
+            aimAtTarget(target, math.max(1, smoothVal))
         end
     end
 end)
 
-print("[HAVOC AI ESP] loaded and synchronized.")
+print("[HAVOC AI ESP] Aimbot step alignment synced successfully.")
