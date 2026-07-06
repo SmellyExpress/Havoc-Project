@@ -4,12 +4,12 @@ menu.AddTab(TAB, "H", "full")
 
 menu.AddGroup(TAB, "Aimbot", -1)
 
-menu.AddCheckbox(TAB, "Aimbot", "havoc_aimbot_enabled", "Enable Entity Aimbot", false, { key = 4, show_mode = true })
+menu.AddCheckbox(TAB, "Aimbot", "havoc_aimbot_enabled", "Enable Entity Aimbot", false, { key = 5, show_mode = false })
 menu.AddCombo(TAB, "Aimbot", "havoc_aimbot_bone", "Aimbot Bone", { "Head", "Torso" }, 0, { parent = "havoc_aimbot_enabled" })
 menu.AddCombo(TAB, "Aimbot", "havoc_aimbot_target_type", "Aimbot Target Type", { "Closest To Crosshair", "Closest Distance" }, 0,
     { parent = "havoc_aimbot_enabled" })
-menu.AddSliderInt(TAB, "Aimbot", "havoc_aimbot_fov", "Aimbot Field Of View", 10, 500, 150, { parent = "havoc_aimbot_enabled" })
-menu.AddSliderInt(TAB, "Aimbot", "havoc_aimbot_max_distance", "Aimbot Max Distance", 0, 3000, 3000, { parent = "havoc_aimbot_enabled" })
+menu.AddSliderInt(TAB, "Aimbot", "havoc_aimbot_fov", "Aimbot Field Of View", 10, 500, 100, { parent = "havoc_aimbot_enabled" })
+menu.AddSliderInt(TAB, "Aimbot", "havoc_aimbot_max_distance", "Aimbot Max Distance", 0, 3000, 500, { parent = "havoc_aimbot_enabled" })
 menu.AddCheckbox(TAB, "Aimbot", "havoc_aimbot_draw_fov", "Field Of View Circle", true,
     { parent = "havoc_aimbot_enabled", colorpicker = { 1.0, 1.0, 1.0, 1.0 } })
 menu.AddCheckbox(TAB, "Aimbot", "havoc_aimbot_target_line", "Target Line", false,
@@ -18,23 +18,23 @@ menu.AddCheckbox(TAB, "Aimbot", "havoc_aimbot_target_line", "Target Line", false
 menu.AddGroup(TAB, "Entity Visuals")
 
 menu.AddCheckbox(TAB, "Entity Visuals", "havoc_entity_enabled", "Enable Entity Visuals", true)
-menu.AddCheckbox(TAB, "Entity Visuals", "havoc_entity_box", "Enable Entity Box", true,
+menu.AddCheckbox(TAB, "Entity Visuals", "havoc_entity_box", "Enable Entity Box", false,
     { parent = "havoc_entity_enabled", colorpicker = { 1.0, 0.31, 0.31, 1.0 } })
 menu.AddCheckbox(TAB, "Entity Visuals", "havoc_entity_name", "Enable Entity Name", true,
     { parent = "havoc_entity_enabled", colorpicker = { 0.92, 0.92, 0.92, 1.0 } })
-menu.AddCheckbox(TAB, "Entity Visuals", "havoc_entity_distance", "Enable Entity Distance", true,
+menu.AddCheckbox(TAB, "Entity Visuals", "havoc_entity_distance", "Enable Entity Distance", false,
     { parent = "havoc_entity_enabled", colorpicker = { 0.67, 0.67, 0.67, 1.0 } })
 menu.AddCheckbox(TAB, "Entity Visuals", "havoc_entity_held_item", "Enable Held Item", true,
     { parent = "havoc_entity_enabled", colorpicker = { 1.0, 0.85, 0.4, 1.0 } })
 menu.AddCheckbox(TAB, "Entity Visuals", "havoc_entity_health_bar", "Enable Entity Health Bar", true, { parent = "havoc_entity_enabled" })
-menu.AddCheckbox(TAB, "Entity Visuals", "havoc_entity_health_text", "Enable Entity Health Text", true,
+menu.AddCheckbox(TAB, "Entity Visuals", "havoc_entity_health_text", "Enable Entity Health Text", false,
     { parent = "havoc_entity_enabled", colorpicker = { 0.3, 1.0, 0.4, 1.0 } })
 menu.AddCheckbox(TAB, "Entity Visuals", "havoc_entity_chams", "Enable Entity Chams", false,
     { parent = "havoc_entity_enabled", colorpicker = { 1.0, 0.2, 0.2, 0.55 } })
-menu.AddCheckbox(TAB, "Entity Visuals", "havoc_entity_skeleton", "Enable Entity Skeleton", false,
+menu.AddCheckbox(TAB, "Entity Visuals", "havoc_entity_skeleton", "Enable Entity Skeleton", true,
     { parent = "havoc_entity_enabled", colorpicker = { 1.0, 1.0, 1.0, 1.0 } })
 menu.AddCheckbox(TAB, "Entity Visuals", "havoc_entity_hide_dead", "Hide Dead Entities", true, { parent = "havoc_entity_enabled" })
-menu.AddSliderInt(TAB, "Entity Visuals", "havoc_entity_max_distance", "Max Render Distance", 0, 3000, 3000, { parent = "havoc_entity_enabled" })
+menu.AddSliderInt(TAB, "Entity Visuals", "havoc_entity_max_distance", "Max Render Distance", 0, 3000, 500, { parent = "havoc_entity_enabled" })
 
 menu.AddGroup(TAB, "Weapon Mods", 0, true)
 
@@ -106,7 +106,7 @@ end
 menu.AddGroup(TAB, "Loot Visuals", -1)
 
 menu.AddCheckbox(TAB, "Loot Visuals", "havoc_loot_enabled", "Enable Loot Visuals", true)
-menu.AddSliderInt(TAB, "Loot Visuals", "havoc_loot_text_size", "Text Size", 1, 20, 13, { parent = "havoc_loot_enabled" })
+menu.AddSliderInt(TAB, "Loot Visuals", "havoc_loot_text_size", "Text Size", 1, 20, 8, { parent = "havoc_loot_enabled" })
 for i = 1, #LOOT_TYPES do
     local entry = LOOT_TYPES[i]
     menu.AddCheckbox(TAB, "Loot Visuals", entry.key, "Enable " .. entry.display .. " Visuals", true,
@@ -117,7 +117,7 @@ menu.AddCheckbox(TAB, "Loot Visuals", LOOT_FALLBACK.key, "Enable " .. LOOT_FALLB
 menu.AddCheckbox(TAB, "Loot Visuals", BODY_BAG_TYPE.key, "Enable " .. BODY_BAG_TYPE.display .. " Visuals", true,
     { parent = "havoc_loot_enabled", colorpicker = BODY_BAG_TYPE.color })
 
-menu.AddCheckbox(TAB, "Loot Visuals", "havoc_loot_distance", "Show Distance", true, { parent = "havoc_loot_enabled" })
+menu.AddCheckbox(TAB, "Loot Visuals", "havoc_loot_distance", "Show Distance", false, { parent = "havoc_loot_enabled" })
 menu.AddCombo(TAB, "Loot Visuals", "havoc_loot_distance_pos", "Distance Position",
     { "Same Line", "Below Name", "Left Of Name", "Right Of Name" }, 0,
     { parent = "havoc_loot_distance" })
@@ -126,7 +126,7 @@ menu.AddCheckbox(TAB, "Loot Visuals", "havoc_loot_marker", "Show Position Marker
 menu.AddCombo(TAB, "Loot Visuals", "havoc_loot_filter", "Loot Filter",
     { "Show All", "Show Locked Only", "Show Unlocked Only", "Show Opened Only", "Show Unopened Only" }, 0,
     { parent = "havoc_loot_enabled" })
-menu.AddSliderInt(TAB, "Loot Visuals", "havoc_loot_max_distance", "Max Render Distance", 0, 5000, 5000, { parent = "havoc_loot_enabled" })
+menu.AddSliderInt(TAB, "Loot Visuals", "havoc_loot_max_distance", "Max Render Distance", 0, 5000, 500, { parent = "havoc_loot_enabled" })
 
 local TEXT_SIZE = 13
 local HEAD_OFFSET = 2.6
