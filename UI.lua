@@ -18,10 +18,9 @@ local DEF = {
     havoc_nofog           = false,
 }
 
--- ====== NEW: Aimbot defaults ======
 local AIM_DEF = {
     enabled  = false,
-    key      = 0x02,      -- RMB by default
+    key      = 0x02,
     key_type = "hold",
     fov      = 180,
     smooth   = 6.0,
@@ -50,7 +49,6 @@ local function uiColor(key, fallback)
     return fallback
 end
 
--- ===== FOG OFFSETS (unchanged) =====
 local _off = {}
 pcall(function()
     local res = game:HttpGet("https://offsets.imtheo.lol/Offsets.json")
@@ -123,7 +121,10 @@ local function restoreFog()
     end)
 end
 
-if _G.HAVOC_ESP_CLEANUP then pcall(_G.HAVOC_ESP_CLEANUP) end
+-- Force cleanup of previous loops and drawings
+if _G.HAVOC_ESP_CLEANUP then 
+    pcall(_G.HAVOC_ESP_CLEANUP) 
+end
 
 local running  = true
 local drawings = {}
@@ -301,33 +302,41 @@ local function getCharacters()
     return out
 end
 
--- ====== NEW: Aimbot UI and logic ======
-local aimKey = nil   -- will hold the keybind widget
+local aimKey = nil
+
+-- Safely clear previous internal UI states if the UI library has a cleanup method
+if typeof(UI) == "table" then
+    if UI.Unload then pcall(UI.Unload) end
+    if UI.Clear then pcall(UI.Clear) end
+end
 
 if typeof(UI) == "table" and UI.AddTab then
-    -- removed pcall to avoid hiding errors
-    UI.AddTab("HAVOC ESP", function(tab)
-        local sec = tab:Section("AI ESP", "Left", nil, 260)
-        sec:Toggle("havoc_esp_enabled",  "Enabled",    DEF.havoc_esp_enabled)
-        sec:Toggle("havoc_esp_box",      "Box",        DEF.havoc_esp_box)
-        sec:Toggle("havoc_esp_name",     "Name",       DEF.havoc_esp_name)
-        sec:Toggle("havoc_esp_distance", "Distance",   DEF.havoc_esp_distance)
-        sec:Toggle("havoc_esp_tracer",   "Tracers",    DEF.havoc_esp_tracer)
-        sec:SliderInt("havoc_esp_dist_max",    "Max Distance",      50, 3000, DEF.havoc_esp_dist_max)
-        sec:SliderInt("havoc_esp_update_rate", "Update Rate (fps)",  5,   60, DEF.havoc_esp_update_rate)
-        sec:ColorPicker("havoc_esp_boxcol", "Box Color", 255 / 255, 80 / 255, 80 / 255)
+    -- Using pcall to prevent partial rendering failures if a duplicate tab error occurs
+    pcall(function()
+        UI.AddTab("HAVOC ESP", function(tab)
+            local sec = tab:Section("AI ESP", "Left", nil, 260)
+            sec:Toggle("havoc_esp_enabled",  "Enabled",     DEF.havoc_esp_enabled)
+            sec:Toggle("havoc_esp_box",      "Box",         DEF.havoc_esp_box)
+            sec:Toggle("havoc_esp_name",     "Name",        DEF.havoc_esp_name)
+            sec:Toggle("havoc_esp_distance", "Distance",    DEF.havoc_esp_distance)
+            sec:Toggle("havoc_esp_tracer",   "Tracers",     DEF.havoc_esp_tracer)
+            sec:SliderInt("havoc_esp_dist_max",    "Max Distance",      50, 3000, DEF.havoc_esp_dist_max)
+            sec:SliderInt("havoc_esp_update_rate", "Update Rate (fps)",  5,   60, DEF.havoc_esp_update_rate)
+            sec:ColorPicker("havoc_esp_boxcol", "Box Color", 255 / 255, 80 / 255, 80 / 255)
 
-        -- NEW: Aimbot section
-        local aim = tab:Section("Aimbot", "Left", nil, 260)
-        aim:Toggle("aim_enabled", "Enabled", AIM_DEF.enabled)
-        aimKey = aim:Keybind("aim_key", AIM_DEF.key, AIM_DEF.key_type)
-        aimKey:AddToHotkey("Aimbot", "aim_enabled")
-        aim:SliderInt("aim_fov", "Field of View (deg)", 1, 360, AIM_DEF.fov)
-        aim:SliderFloat("aim_smooth", "Smoothing", 0.1, 20.0, AIM_DEF.smooth, "%.1f")
-        aim:SliderInt("aim_dist_max", "Max Aim Range", 50, 3000, AIM_DEF.dist_max)
+            local aim = tab:Section("Aimbot", "Left", nil, 260)
+            aim:Toggle("aim_enabled", "Enabled", AIM_DEF.enabled)
+            aimKey = aim:Keybind("aim_key", AIM_DEF.key, AIM_DEF.key_type)
+            if aimKey and aimKey.AddToHotkey then
+                pcall(function() aimKey:AddToHotkey("Aimbot", "aim_enabled") end)
+            end
+            aim:SliderInt("aim_fov", "Field of View (deg)", 1, 360, AIM_DEF.fov)
+            aim:SliderFloat("aim_smooth", "Smoothing", 0.1, 20.0, AIM_DEF.smooth, "%.1f")
+            aim:SliderInt("aim_dist_max", "Max Aim Range", 50, 3000, AIM_DEF.dist_max)
 
-        local vis = tab:Section("Visuals", "Right", nil, 260)
-        vis:Toggle("havoc_nofog", "No Fog", DEF.havoc_nofog)
+            local vis = tab:Section("Visuals", "Right", nil, 260)
+            vis:Toggle("havoc_nofog", "No Fog", DEF.havoc_nofog)
+        end)
     end)
 end
 
@@ -363,7 +372,6 @@ local function rebuildItems()
     espItems = out
 end
 
--- ====== NEW: Aimbot helpers ======
 local function getBestAimTarget()
     local cam = Camera
     if not cam then return nil end
@@ -376,7 +384,6 @@ local function getBestAimTarget()
     local best = nil
     local bestAngle = 1e9
 
-    -- We iterate over espItems (already filtered to NPCs)
     for _, it in ipairs(espItems) do
         local part = it.part
         if part then
@@ -404,10 +411,6 @@ local function getBestAimTarget()
             end
         end
     end
-
-    if DEBUG and best then
-        print(string.format("[Aimbot] Best target: %s (%.1f studs, %.1f°)", best.name, best.distance, best.angle))
-    end
     return best
 end
 
@@ -429,11 +432,12 @@ local function aimAtTarget(target, smoothFactor)
     )
 
     local newPos = currentMousePos:Lerp(targetScreen, smoothFactor)
-    mousemoveabs(math.floor(newPos.X), math.floor(newPos.Y))
+    if mousemoveabs then
+        mousemoveabs(math.floor(newPos.X), math.floor(newPos.Y))
+    end
     currentMousePos = newPos
 end
 
--- ====== Main loop ======
 local lastDrawn = 0
 local dbgClock  = os.clock()
 
@@ -513,9 +517,13 @@ renderConn = RunService.RenderStepped:Connect(function()
     for i = slot + 1, lastDrawn do hideSlot(slots[i]) end
     lastDrawn = slot
 
-    -- ====== NEW: Aimbot execution ======
     local aimEnabled = uiGet("aim_enabled", false)
-    local keyActive = aimKey and aimKey:IsEnabled()
+    local keyActive = false
+    pcall(function()
+        if aimKey and aimKey.IsEnabled then
+            keyActive = aimKey:IsEnabled()
+        end
+    end)
 
     if aimEnabled and keyActive then
         local smoothVal = uiGet("aim_smooth", 6.0)
@@ -524,11 +532,6 @@ renderConn = RunService.RenderStepped:Connect(function()
         if target then
             aimAtTarget(target, factor)
         end
-    end
-
-    if DEBUG and (now - dbgClock) >= 1 then
-        dbgClock = now
-        print(string.format("[HAVOC ESP] items=%d drawn=%d", #espItems, slot))
     end
 end)
 
