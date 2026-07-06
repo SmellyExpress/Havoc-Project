@@ -2,7 +2,6 @@ local RunService  = game:GetService("RunService")
 local Players     = game:GetService("Players")
 local Lighting    = game:GetService("Lighting")
 local HttpService = game:GetService("HttpService")
-local UserInputService = game:GetService("UserInputService")
 local GuiService  = game:GetService("GuiService")
 local Camera      = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
@@ -422,7 +421,6 @@ local function getBestAimTarget()
     return best
 end
 
--- Integrated Robust Reference Math Step Function
 local function aimStep(delta, smooth, maxStep)
     local value = delta / smooth
     if value > maxStep then value = maxStep elseif value < -maxStep then value = -maxStep end
@@ -448,7 +446,6 @@ local function aimAtTarget(target, smoothVal)
     local dy = screenPos.Y - center.Y
 
     if mousemoverel then
-        -- Uses the reference clamping logic to ensure sub-pixel deltas never round down to zero
         local moveX = aimStep(dx, smoothVal, 35)
         local moveY = aimStep(dy, smoothVal, 35)
 
@@ -460,18 +457,18 @@ end
 
 local function checkHotkeyActive()
     local key = uiGet("aim_key", AIM_DEF.key)
-    -- Fallback safety check if UI library tables get wrapped cleanly
     if type(key) == "table" and key.Value ~= nil then key = key.Value end
 
+    -- Safe environment-aware hotkey checks without using missing engine Enums
     if key == 0x01 then
-        return (ismouse1pressed and ismouse1pressed()) or UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
+        return (ismouse1pressed and ismouse1pressed())
     elseif key == 0x02 then
-        return (ismouse2pressed and ismouse2pressed()) or UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
+        return (ismouse2pressed and ismouse2pressed())
     elseif iskeypressed then
         local success, down = pcall(function() return iskeypressed(key) end)
         if success then return down end
     end
-    return UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) -- Ultimate fallback to RMB
+    return (ismouse2pressed and ismouse2pressed())
 end
 
 local lastDrawn = 0
@@ -568,4 +565,4 @@ renderConn = RunService.RenderStepped:Connect(function()
     end
 end)
 
-print("[HAVOC AI ESP] Aimbot step alignment synced successfully.")
+print("[HAVOC AI ESP] Aimbot hotkey and step math synced successfully.")
