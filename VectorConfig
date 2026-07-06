@@ -1,0 +1,1062 @@
+local TAB = "Havoc ESP"
+
+menu.AddTab(TAB, "H", "full")
+
+menu.AddGroup(TAB, "Aimbot", -1)
+
+menu.AddCheckbox(TAB, "Aimbot", "havoc_aimbot_enabled", "Enable Entity Aimbot", false, { key = 4, show_mode = true })
+menu.AddCombo(TAB, "Aimbot", "havoc_aimbot_bone", "Aimbot Bone", { "Head", "Torso" }, 0, { parent = "havoc_aimbot_enabled" })
+menu.AddCombo(TAB, "Aimbot", "havoc_aimbot_target_type", "Aimbot Target Type", { "Closest To Crosshair", "Closest Distance" }, 0,
+    { parent = "havoc_aimbot_enabled" })
+menu.AddSliderInt(TAB, "Aimbot", "havoc_aimbot_fov", "Aimbot Field Of View", 10, 500, 150, { parent = "havoc_aimbot_enabled" })
+menu.AddSliderInt(TAB, "Aimbot", "havoc_aimbot_max_distance", "Aimbot Max Distance", 0, 3000, 3000, { parent = "havoc_aimbot_enabled" })
+menu.AddCheckbox(TAB, "Aimbot", "havoc_aimbot_draw_fov", "Field Of View Circle", true,
+    { parent = "havoc_aimbot_enabled", colorpicker = { 1.0, 1.0, 1.0, 1.0 } })
+menu.AddCheckbox(TAB, "Aimbot", "havoc_aimbot_target_line", "Target Line", false,
+    { parent = "havoc_aimbot_enabled", colorpicker = { 1.0, 0.3, 0.3, 1.0 } })
+
+menu.AddGroup(TAB, "Entity Visuals")
+
+menu.AddCheckbox(TAB, "Entity Visuals", "havoc_entity_enabled", "Enable Entity Visuals", true)
+menu.AddCheckbox(TAB, "Entity Visuals", "havoc_entity_box", "Enable Entity Box", true,
+    { parent = "havoc_entity_enabled", colorpicker = { 1.0, 0.31, 0.31, 1.0 } })
+menu.AddCheckbox(TAB, "Entity Visuals", "havoc_entity_name", "Enable Entity Name", true,
+    { parent = "havoc_entity_enabled", colorpicker = { 0.92, 0.92, 0.92, 1.0 } })
+menu.AddCheckbox(TAB, "Entity Visuals", "havoc_entity_distance", "Enable Entity Distance", true,
+    { parent = "havoc_entity_enabled", colorpicker = { 0.67, 0.67, 0.67, 1.0 } })
+menu.AddCheckbox(TAB, "Entity Visuals", "havoc_entity_held_item", "Enable Held Item", true,
+    { parent = "havoc_entity_enabled", colorpicker = { 1.0, 0.85, 0.4, 1.0 } })
+menu.AddCheckbox(TAB, "Entity Visuals", "havoc_entity_health_bar", "Enable Entity Health Bar", true, { parent = "havoc_entity_enabled" })
+menu.AddCheckbox(TAB, "Entity Visuals", "havoc_entity_health_text", "Enable Entity Health Text", true,
+    { parent = "havoc_entity_enabled", colorpicker = { 0.3, 1.0, 0.4, 1.0 } })
+menu.AddCheckbox(TAB, "Entity Visuals", "havoc_entity_chams", "Enable Entity Chams", false,
+    { parent = "havoc_entity_enabled", colorpicker = { 1.0, 0.2, 0.2, 0.55 } })
+menu.AddCheckbox(TAB, "Entity Visuals", "havoc_entity_skeleton", "Enable Entity Skeleton", false,
+    { parent = "havoc_entity_enabled", colorpicker = { 1.0, 1.0, 1.0, 1.0 } })
+menu.AddCheckbox(TAB, "Entity Visuals", "havoc_entity_hide_dead", "Hide Dead Entities", true, { parent = "havoc_entity_enabled" })
+menu.AddSliderInt(TAB, "Entity Visuals", "havoc_entity_max_distance", "Max Render Distance", 0, 3000, 3000, { parent = "havoc_entity_enabled" })
+
+menu.AddGroup(TAB, "Weapon Mods", 0, true)
+
+menu.AddCheckbox(TAB, "Weapon Mods", "havoc_no_recoil", "Enable No Recoil", false)
+menu.AddCheckbox(TAB, "Weapon Mods", "havoc_no_spread", "Enable No Spread", false)
+menu.AddCheckbox(TAB, "Weapon Mods", "havoc_no_sway", "Enable No Sway", false)
+menu.AddCheckbox(TAB, "Weapon Mods", "havoc_fast_vel", "Enable Fast Bullet Velocity", false)
+
+local LOOT_TYPES = {
+    { key = "loot_medium_crate", match = "Medium Wooden Crate", display = "Medium Wooden Crate", color = { 0.62, 0.44, 0.24, 1.0 } },
+    { key = "loot_complex_crate", match = "Complex Crate", display = "Complex Crate", color = { 0.55, 0.55, 0.6, 1.0 } },
+    { key = "loot_military_crate", match = "Military Crate", display = "Military Crate", color = { 0.3, 0.55, 0.3, 1.0 } },
+    { key = "loot_wooden_crate", match = "Wooden Crate", display = "Wooden Crate", color = { 0.55, 0.4, 0.25, 1.0 } },
+    { key = "loot_weapon_locker", match = "Weapon Locker", display = "Weapon Locker", color = { 1.0, 0.4, 0.2, 1.0 } },
+    { key = "loot_weapon_box", match = "Weapon Box", display = "Weapon Box", color = { 1.0, 0.35, 0.25, 1.0 } },
+    { key = "loot_rifle_case", match = "Rifle Case", display = "Rifle Case", color = { 1.0, 0.5, 0.3, 1.0 } },
+    { key = "loot_pistol_case", match = "Pistol Case", display = "Pistol Case", color = { 1.0, 0.45, 0.3, 1.0 } },
+    { key = "loot_small_case", match = "Small Case", display = "Small Case", color = { 0.9, 0.6, 0.4, 1.0 } },
+    { key = "loot_ammunition_box", match = "Ammunition Box", display = "Ammunition Box", color = { 0.3, 0.75, 1.0, 1.0 } },
+    { key = "loot_technical_shelf", match = "Technical Shelf", display = "Technical Shelf", color = { 0.35, 0.7, 0.9, 1.0 } },
+    { key = "loot_tool_shelf", match = "Tool Shelf", display = "Tool Shelf", color = { 0.4, 0.68, 0.88, 1.0 } },
+    { key = "loot_toolbox", match = "Toolbox", display = "Toolbox", color = { 0.4, 0.65, 0.85, 1.0 } },
+    { key = "loot_medical_box", match = "Medical Box", display = "Medical Box", color = { 0.9, 0.2, 0.2, 1.0 } },
+    { key = "loot_safe", match = "Safe", display = "Safe", color = { 1.0, 0.85, 0.2, 1.0 } },
+    { key = "loot_cabinet", match = "Cabinet", display = "Cabinet", color = { 0.9, 0.75, 0.3, 1.0 } },
+    { key = "loot_cash_register", match = "Cash Register", display = "Cash Register", color = { 1.0, 0.8, 0.1, 1.0 } },
+    { key = "loot_duffel_bag", match = "Duffel Bag", display = "Duffel Bag", color = { 0.85, 0.7, 0.35, 1.0 } },
+    { key = "loot_backpack", match = "backpack", display = "Backpack", color = { 0.8, 0.65, 0.3, 1.0 } },
+    { key = "loot_closet", match = "Closet", display = "Closet", color = { 0.6, 0.6, 0.65, 1.0 } },
+    { key = "loot_computer", match = "Computer", display = "Computer", color = { 0.3, 0.9, 0.9, 1.0 } },
+    { key = "loot_server_unit", match = "Server Unit", display = "Server Unit", color = { 0.25, 0.8, 0.95, 1.0 } },
+    { key = "loot_powerbox", match = "PowerBox", display = "Power Box", color = { 0.9, 0.85, 0.2, 1.0 } },
+    { key = "loot_standing_atm", match = "StandingATM", display = "ATM", color = { 0.2, 0.9, 0.5, 1.0 } },
+    { key = "loot_locker", match = "Locker", display = "Locker", color = { 0.55, 0.55, 0.6, 1.0 } },
+    { key = "loot_tall_fridge", match = "Tall Fridge", display = "Tall Fridge", color = { 0.7, 0.85, 0.9, 1.0 } },
+    { key = "loot_fridge", match = "Fridge", display = "Fridge", color = { 0.75, 0.88, 0.92, 1.0 } },
+    { key = "loot_stove", match = "Stove", display = "Stove", color = { 0.5, 0.5, 0.5, 1.0 } },
+    { key = "loot_washing_machine", match = "Washing Machine", display = "Washing Machine", color = { 0.65, 0.75, 0.85, 1.0 } },
+    { key = "loot_dishwasher", match = "Dishwasher", display = "Dishwasher", color = { 0.6, 0.7, 0.8, 1.0 } },
+    { key = "loot_envelope", match = "Envelope", display = "Envelope", color = { 0.9, 0.85, 0.7, 1.0 } },
+    { key = "loot_explosive_barrel", match = "ExplosiveBarrel", display = "Explosive Barrel", color = { 1.0, 0.3, 0.0, 1.0 } },
+    { key = "loot_door", match = { "WoodenDoor", "DoubleGlassDoor", "DoubleMetalDoor", "MetalDoor", "GarageDoorLock" },
+      display = "Locked Door", color = { 0.5, 0.4, 0.3, 1.0 } },
+}
+local LOOT_FALLBACK = { key = "loot_other", display = "Other Loot", color = { 0.8, 0.8, 0.8, 1.0 } }
+
+local BODY_BAG_TYPE = { key = "loot_body_bag", display = "Body Bag", color = { 0.35, 0.35, 0.35, 1.0 } }
+
+local function name_matches(name, pattern)
+    if type(pattern) == "table" then
+        for i = 1, #pattern do
+            if string.find(name, pattern[i], 1, true) then return true end
+        end
+        return false
+    end
+    return string.find(name, pattern, 1, true) ~= nil
+end
+
+local function categorize_loot(name)
+    for i = 1, #LOOT_TYPES do
+        local entry = LOOT_TYPES[i]
+        if name_matches(name, entry.match) then
+            return entry
+        end
+    end
+    return LOOT_FALLBACK
+end
+
+menu.AddGroup(TAB, "Loot Visuals", -1)
+
+menu.AddCheckbox(TAB, "Loot Visuals", "havoc_loot_enabled", "Enable Loot Visuals", true)
+menu.AddSliderInt(TAB, "Loot Visuals", "havoc_loot_text_size", "Text Size", 1, 20, 13, { parent = "havoc_loot_enabled" })
+for i = 1, #LOOT_TYPES do
+    local entry = LOOT_TYPES[i]
+    menu.AddCheckbox(TAB, "Loot Visuals", entry.key, "Enable " .. entry.display .. " Visuals", true,
+        { parent = "havoc_loot_enabled", colorpicker = entry.color })
+end
+menu.AddCheckbox(TAB, "Loot Visuals", LOOT_FALLBACK.key, "Enable " .. LOOT_FALLBACK.display .. " Visuals", true,
+    { parent = "havoc_loot_enabled", colorpicker = LOOT_FALLBACK.color })
+menu.AddCheckbox(TAB, "Loot Visuals", BODY_BAG_TYPE.key, "Enable " .. BODY_BAG_TYPE.display .. " Visuals", true,
+    { parent = "havoc_loot_enabled", colorpicker = BODY_BAG_TYPE.color })
+
+menu.AddCheckbox(TAB, "Loot Visuals", "havoc_loot_distance", "Show Distance", true, { parent = "havoc_loot_enabled" })
+menu.AddCombo(TAB, "Loot Visuals", "havoc_loot_distance_pos", "Distance Position",
+    { "Same Line", "Below Name", "Left Of Name", "Right Of Name" }, 0,
+    { parent = "havoc_loot_distance" })
+menu.AddCheckbox(TAB, "Loot Visuals", "havoc_loot_marker", "Show Position Marker", true,
+    { parent = "havoc_loot_enabled" })
+menu.AddCombo(TAB, "Loot Visuals", "havoc_loot_filter", "Loot Filter",
+    { "Show All", "Show Locked Only", "Show Unlocked Only", "Show Opened Only", "Show Unopened Only" }, 0,
+    { parent = "havoc_loot_enabled" })
+menu.AddSliderInt(TAB, "Loot Visuals", "havoc_loot_max_distance", "Max Render Distance", 0, 5000, 5000, { parent = "havoc_loot_enabled" })
+
+local TEXT_SIZE = 13
+local HEAD_OFFSET = 2.6
+local FOOT_OFFSET = 3.2
+
+local SCAN_YIELD_EVERY = 64
+local scan_yield_counter = 0
+
+local function scan_yield()
+    scan_yield_counter = scan_yield_counter + 1
+    if scan_yield_counter >= SCAN_YIELD_EVERY then
+        scan_yield_counter = 0
+        sleep(0.001)
+    end
+end
+
+local RETRY_COOLDOWN = 5.0
+
+local SAFE_MATCH_LIMIT = 150
+
+local key_safe = {}
+
+local function is_key_safe(key)
+    local cached = key_safe[key]
+    if cached ~= nil then return cached end
+
+    local ok, count = pcall(getgc, { key })
+    local safe = ok and count and count > 0 and count <= SAFE_MATCH_LIMIT
+    key_safe[key] = safe
+
+    if ok and count and count > SAFE_MATCH_LIMIT then
+        notify.Warning(key .. ": matches " .. count .. " heap nodes, blocked as unsafe to patch", "", 6)
+    end
+
+    return safe
+end
+
+local function sanitize_patch(patch)
+    local out, any = {}, false
+    for key, value in pairs(patch) do
+        if is_key_safe(key) then
+            out[key] = value
+            any = true
+        end
+    end
+    return any and out or nil
+end
+
+local mod_prev_state = {}
+local mod_next_attempt = {}
+local mod_applied = {}
+
+local function run_mod(id, label, build_patch)
+    local enabled = menu.Get(id)
+    local was_enabled = mod_prev_state[id]
+    local just_enabled = enabled ~= was_enabled
+    mod_prev_state[id] = enabled
+
+    if not enabled then
+        mod_next_attempt[id] = nil
+        mod_applied[id] = false
+        return
+    end
+
+    if mod_applied[id] then
+        return
+    end
+
+    if just_enabled then
+        notify.Warning(label .. ": scanning memory, this may take a moment", "", 4)
+    end
+
+    local now = os.clock()
+    if not just_enabled and mod_next_attempt[id] and now < mod_next_attempt[id] then
+        return
+    end
+
+    local patch = sanitize_patch(build_patch())
+    if not patch then
+        mod_next_attempt[id] = now + RETRY_COOLDOWN
+        if just_enabled then notify.Warning(label .. ": no safe keys found in memory", "", 4) end
+        return
+    end
+
+    local ok, patched = pcall(applygc, patch)
+    patched = ok and patched or 0
+
+    if patched > 0 then
+        mod_applied[id] = true
+        notify.Success(label .. " enabled")
+    else
+        mod_next_attempt[id] = now + RETRY_COOLDOWN
+        if just_enabled then notify.Warning(label .. ": no matching keys found in memory", "", 4) end
+    end
+end
+
+local function apply_weapon_mods()
+    run_mod("havoc_no_recoil", "No Recoil", function()
+        return { vPunchBase = 0, hPunchBase = 0 }
+    end)
+    run_mod("havoc_no_spread", "No Spread", function()
+        return { spreadReduce = 100 }
+    end)
+    run_mod("havoc_no_sway", "No Sway", function()
+        return { weight = 0, aimWeight = 0, unAimWeight = 0 }
+    end)
+    run_mod("havoc_fast_vel", "Fast Bullet Velocity", function()
+        return { vel = 100000 }
+    end)
+end
+
+local mod_cache_warmed = false
+
+local function warm_mod_cache()
+    if mod_cache_warmed then return end
+    mod_cache_warmed = true
+    getgc({ "vPunchBase", "hPunchBase", "spreadReduce", "weight", "aimWeight", "unAimWeight", "vel" })
+end
+
+local function any_mod_enabled()
+    return menu.Get("havoc_no_recoil") or menu.Get("havoc_no_spread")
+        or menu.Get("havoc_no_sway") or menu.Get("havoc_fast_vel")
+end
+
+thread.Create(function()
+    if any_mod_enabled() then
+        warm_mod_cache()
+        apply_weapon_mods()
+    end
+end, 500)
+
+local ENTITY_SCAN_INTERVAL = 1.0
+
+local PLAYER_MATCH_DIST = 5.0
+
+local function is_player_character(model, root, players)
+    for i = 1, #players do
+        local char = players[i].Character
+        if char and char == model then
+            return true
+        end
+    end
+
+    local ok, pos = pcall(function() return root.Position end)
+    if not ok or not pos then return false end
+
+    for i = 1, #players do
+        local ok_ppos, ppos = pcall(function() return players[i].Position end)
+        if ok_ppos and ppos and (pos - ppos).Magnitude < PLAYER_MATCH_DIST then
+            return true
+        end
+    end
+
+    local ok_lp, local_player = pcall(entity.GetLocalPlayer)
+    if ok_lp and local_player then
+        local ok_char, char = pcall(function() return local_player.Character end)
+        if ok_char and char and char == model then
+            return true
+        end
+
+        local ok_lp_pos, lp_pos = pcall(function() return local_player.Position end)
+        if ok_lp_pos and lp_pos and (pos - lp_pos).Magnitude < PLAYER_MATCH_DIST then
+            return true
+        end
+    end
+
+    return false
+end
+
+local BONE_NAMES = {
+    "Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg",
+    "UpperTorso", "LowerTorso",
+    "LeftUpperArm", "LeftLowerArm", "LeftHand",
+    "RightUpperArm", "RightLowerArm", "RightHand",
+    "LeftUpperLeg", "LeftLowerLeg", "LeftFoot",
+    "RightUpperLeg", "RightLowerLeg", "RightFoot",
+}
+
+local SKELETON_R15 = {
+    { "Head", "UpperTorso" }, { "UpperTorso", "LowerTorso" },
+    { "UpperTorso", "LeftUpperArm" }, { "UpperTorso", "RightUpperArm" },
+    { "LeftUpperArm", "LeftLowerArm" }, { "RightUpperArm", "RightLowerArm" },
+    { "LeftLowerArm", "LeftHand" }, { "RightLowerArm", "RightHand" },
+    { "LowerTorso", "LeftUpperLeg" }, { "LowerTorso", "RightUpperLeg" },
+    { "LeftUpperLeg", "LeftLowerLeg" }, { "RightUpperLeg", "RightLowerLeg" },
+    { "LeftLowerLeg", "LeftFoot" }, { "RightLowerLeg", "RightFoot" },
+}
+local SKELETON_R6 = {
+    { "Head", "Torso" }, { "Torso", "Left Arm" }, { "Torso", "Right Arm" },
+    { "Torso", "Left Leg" }, { "Torso", "Right Leg" },
+}
+
+local function collect_body_parts(model)
+    local parts = {}
+    local sizes = {}
+    local ok, children = pcall(function() return model:GetChildren() end)
+    if not ok or not children then return parts, sizes end
+
+    for i = 1, #children do
+        local child = children[i]
+        local cls = child.ClassName
+        if cls == "Part" or cls == "MeshPart" then
+            for j = 1, #BONE_NAMES do
+                if child.Name == BONE_NAMES[j] then
+                    parts[child.Name] = child
+                    local ok_size, size = pcall(function() return child.Size end)
+                    sizes[child.Name] = ok_size and size or nil
+                    break
+                end
+            end
+        end
+    end
+
+    return parts, sizes
+end
+
+local entity_by_model = {}
+
+local function get_or_create_entity(model, root, humanoid)
+    local entry = entity_by_model[model]
+    if entry then return entry end
+
+    local parts, part_sizes = collect_body_parts(model)
+    entry = { model = model, root = root, humanoid = humanoid, parts = parts, part_size = part_sizes }
+    entity_by_model[model] = entry
+    return entry
+end
+
+local function collect_entities(container, players, out, depth)
+    if depth > 6 then return end
+
+    local ok, children = pcall(function() return container:GetChildren() end)
+    if not ok or not children then return end
+
+    for i = 1, #children do
+        scan_yield()
+
+        local child = children[i]
+        local cls = child.ClassName
+
+        if cls == "Model" or cls == "WorldModel" then
+            local hum = child:FindFirstChildOfClass("Humanoid")
+            if hum then
+                local root = child:FindFirstChild("HumanoidRootPart")
+                    or child:FindFirstChild("Torso")
+                    or child:FindFirstChild("UpperTorso")
+                    or child:FindFirstChild("Head")
+                    or child:FindFirstChildWhichIsA("BasePart")
+
+                if root and not is_player_character(child, root, players) then
+                    out[#out + 1] = get_or_create_entity(child, root, hum)
+                end
+            else
+                collect_entities(child, players, out, depth + 1)
+            end
+        elseif cls == "Folder" then
+            collect_entities(child, players, out, depth + 1)
+        end
+    end
+end
+
+local FOLDER_POLL_INTERVAL = 0.25
+
+local characters_folder = nil
+
+local function get_entity_root()
+    if not characters_folder then
+        characters_folder = game.Workspace:FindFirstChild("Characters")
+    end
+    return characters_folder
+end
+
+local entity_cache = {}
+local entity_cache_stamp = 0
+
+local function refresh_entity_cache()
+    local now = os.clock()
+    local interval = characters_folder and ENTITY_SCAN_INTERVAL or FOLDER_POLL_INTERVAL
+    if (now - entity_cache_stamp) < interval then return end
+    entity_cache_stamp = now
+
+    local root = get_entity_root()
+    if not root then return end
+
+    local players = entity.GetPlayers()
+    local out = {}
+    collect_entities(root, players, out, 0)
+
+    if #out > 0 then
+        local new_by_model = {}
+        for i = 1, #out do
+            new_by_model[out[i].model] = out[i]
+        end
+        entity_by_model = new_by_model
+        entity_cache = out
+    end
+end
+
+local LOOT_SCAN_INTERVAL = 30.0
+local LOOT_SCAN_DEPTH = 8
+
+local function get_loot_info(model)
+    local data = model:FindFirstChild("data")
+    if not data or data.ClassName ~= "Configuration" then return nil end
+
+    local loot_type = data:FindFirstChild("lootType")
+    local is_open = data:FindFirstChild("isOpen")
+    local is_locked = data:FindFirstChild("isLocked")
+    if not (loot_type and is_open and is_locked) then return nil end
+
+    return is_open, is_locked
+end
+
+local loot_by_model = {}
+
+local function get_or_create_loot(model, root, category, is_open_inst, is_locked_inst)
+    local entry = loot_by_model[model]
+    if entry then return entry end
+
+    local ok_pos, pos = pcall(function() return root.Position end)
+    entry = {
+        model = model,
+        root = root,
+        pos = ok_pos and pos or nil,
+        is_open_inst = is_open_inst,
+        is_locked_inst = is_locked_inst,
+        is_open = nil,
+        is_locked = nil,
+        category = category,
+    }
+    loot_by_model[model] = entry
+    return entry
+end
+
+local function collect_loot(container, out, depth)
+    if depth > LOOT_SCAN_DEPTH then return end
+
+    local ok, children = pcall(function() return container:GetChildren() end)
+    if not ok or not children then return end
+
+    for i = 1, #children do
+        scan_yield()
+
+        local child = children[i]
+        local cls = child.ClassName
+
+        if cls == "Model" then
+            local is_open, is_locked = get_loot_info(child)
+            if is_open then
+                local root = child:FindFirstChildWhichIsA("BasePart")
+                if root then
+                    out[#out + 1] = get_or_create_loot(child, root, categorize_loot(child.Name), is_open, is_locked)
+                end
+            else
+                collect_loot(child, out, depth + 1)
+            end
+        elseif cls == "Folder" or cls == "WorldModel" then
+            collect_loot(child, out, depth + 1)
+        end
+    end
+end
+
+local buildings_folder = nil
+
+local function get_buildings_folder()
+    if not buildings_folder then
+        buildings_folder = game.Workspace:FindFirstChild("Buildings")
+    end
+    return buildings_folder
+end
+
+local function collect_body_bags(buildings, out)
+    local loots1 = buildings:FindFirstChild("Loots")
+    if not loots1 then return end
+    local loots2 = loots1:FindFirstChild("Loots")
+    if not loots2 then return end
+    local characters = loots2:FindFirstChild("Characters")
+    if not characters then return end
+
+    local ok, children = pcall(function() return characters:GetChildren() end)
+    if not ok or not children then return end
+
+    for i = 1, #children do
+        scan_yield()
+
+        local child = children[i]
+        if child.ClassName == "Model" then
+            local root = child:FindFirstChildWhichIsA("BasePart")
+            if root then
+                out[#out + 1] = get_or_create_loot(child, root, BODY_BAG_TYPE, nil, nil)
+            end
+        end
+    end
+end
+
+local loot_cache = {}
+local loot_cache_stamp = 0
+
+local function refresh_loot_cache()
+    local now = os.clock()
+    local interval = buildings_folder and LOOT_SCAN_INTERVAL or FOLDER_POLL_INTERVAL
+    if (now - loot_cache_stamp) < interval then return end
+    loot_cache_stamp = now
+
+    local out = {}
+    local buildings = get_buildings_folder()
+    if buildings then
+        local ok, children = pcall(function() return buildings:GetChildren() end)
+        if ok and children then
+            for i = 1, #children do
+                local loots = children[i]:FindFirstChild("Loots")
+                if loots then
+                    collect_loot(loots, out, 0)
+                end
+            end
+        end
+        collect_body_bags(buildings, out)
+    end
+
+    if #out > 0 then
+        local new_by_model = {}
+        for i = 1, #out do
+            new_by_model[out[i].model] = out[i]
+        end
+        loot_by_model = new_by_model
+        loot_cache = out
+    end
+end
+
+local LOOT_LIVE_BATCH_SIZE = 60
+local loot_live_cursor = 1
+
+local function refresh_loot_live()
+    local n = #loot_cache
+    if n == 0 then return end
+
+    if loot_live_cursor > n then loot_live_cursor = 1 end
+
+    local remaining = math.min(LOOT_LIVE_BATCH_SIZE, n)
+    while remaining > 0 do
+        local loot = loot_cache[loot_live_cursor]
+        if loot.is_open_inst then
+            local ok, is_open_val, is_locked_val = pcall(function()
+                return loot.is_open_inst.Value, loot.is_locked_inst.Value
+            end)
+            if ok then
+                loot.is_open = is_open_val
+                loot.is_locked = is_locked_val
+            end
+        end
+
+        loot_live_cursor = loot_live_cursor + 1
+        if loot_live_cursor > n then loot_live_cursor = 1 end
+        remaining = remaining - 1
+    end
+end
+
+local CORNER_SIGNS = {
+    { -1, -1, -1 }, { -1, -1, 1 }, { -1, 1, -1 }, { -1, 1, 1 },
+    { 1, -1, -1 }, { 1, -1, 1 }, { 1, 1, -1 }, { 1, 1, 1 },
+}
+
+local function get_entity_bounds_from_parts(part_pos, part_size)
+    local min_x, min_y = math.huge, math.huge
+    local max_x, max_y = -math.huge, -math.huge
+    local valid = false
+
+    for name, pos in pairs(part_pos) do
+        local size = part_size[name]
+        if size then
+            local hx, hy, hz = size.X * 0.5, size.Y * 0.5, size.Z * 0.5
+            for i = 1, 8 do
+                local s = CORNER_SIGNS[i]
+                local cx, cy, cok = utility.WorldToScreen(pos.X + s[1] * hx, pos.Y + s[2] * hy, pos.Z + s[3] * hz)
+                if cok then
+                    valid = true
+                    if cx < min_x then min_x = cx end
+                    if cx > max_x then max_x = cx end
+                    if cy < min_y then min_y = cy end
+                    if cy > max_y then max_y = cy end
+                end
+            end
+        else
+            local cx, cy, cok = utility.WorldToScreen(pos.X, pos.Y, pos.Z)
+            if cok then
+                valid = true
+                if cx < min_x then min_x = cx end
+                if cx > max_x then max_x = cx end
+                if cy < min_y then min_y = cy end
+                if cy > max_y then max_y = cy end
+            end
+        end
+    end
+
+    if not valid then return { valid = false } end
+
+    return { x = min_x, y = min_y, w = max_x - min_x, h = max_y - min_y, valid = true }
+end
+
+local function get_entity_bounds_fallback(root_pos)
+    local top_x, top_y, top_ok = utility.WorldToScreen(root_pos.X, root_pos.Y + HEAD_OFFSET, root_pos.Z)
+    local bot_x, bot_y, bot_ok = utility.WorldToScreen(root_pos.X, root_pos.Y - FOOT_OFFSET, root_pos.Z)
+
+    if not (top_ok and bot_ok) then
+        return { valid = false }
+    end
+
+    local height = math.abs(bot_y - top_y)
+    if height < 1 then height = 1 end
+    local width = height * 0.5
+
+    return { x = top_x - width * 0.5, y = top_y, w = width, h = height, valid = true }
+end
+
+local function get_entity_bounds(part_pos, part_size, root_pos)
+    if next(part_pos) ~= nil then
+        local bounds = get_entity_bounds_from_parts(part_pos, part_size)
+        if bounds.valid then return bounds end
+    end
+    return get_entity_bounds_fallback(root_pos)
+end
+
+local function draw_entity_chams(part_pos, part_size, color)
+    local hulls = {}
+
+    for name, pos in pairs(part_pos) do
+        local size = part_size[name]
+        if size then
+            local hx, hy, hz = size.X * 0.5, size.Y * 0.5, size.Z * 0.5
+            local screen_pts = {}
+            for i = 1, 8 do
+                local s = CORNER_SIGNS[i]
+                local cx, cy, cok = utility.WorldToScreen(pos.X + s[1] * hx, pos.Y + s[2] * hy, pos.Z + s[3] * hz)
+                if cok then screen_pts[#screen_pts + 1] = { cx, cy } end
+            end
+            if #screen_pts >= 3 then
+                local hull = draw.ComputeHull(screen_pts)
+                if #hull >= 3 then
+                    hulls[#hulls + 1] = hull
+                end
+            end
+        end
+    end
+
+    if #hulls > 0 then
+        draw.Chams(hulls, color)
+    end
+end
+
+local SKELETON_OUTLINE_COLOR = { 0, 0, 0, 0.78 }
+
+local function draw_entity_skeleton(part_pos, color)
+    local bone_list = part_pos["UpperTorso"] and SKELETON_R15 or SKELETON_R6
+
+    for i = 1, #bone_list do
+        local pos1 = part_pos[bone_list[i][1]]
+        local pos2 = part_pos[bone_list[i][2]]
+        if pos1 and pos2 then
+            local x1, y1, vis1 = utility.WorldToScreen(pos1.X, pos1.Y, pos1.Z)
+            local x2, y2, vis2 = utility.WorldToScreen(pos2.X, pos2.Y, pos2.Z)
+            if vis1 and vis2 then
+                draw.Line(x1, y1, x2, y2, SKELETON_OUTLINE_COLOR, 3.0)
+                draw.Line(x1, y1, x2, y2, color, 1.5)
+            end
+        end
+    end
+end
+
+local function draw_esp(bounds, name_str, dist_val, opts)
+    if not bounds.valid then return end
+
+    if opts.box then
+        draw.CornerBox(bounds.x, bounds.y, bounds.w, bounds.h, opts.box_color)
+    end
+
+    if opts.health_bar then
+        draw.HealthBar(bounds.x, bounds.y, bounds.h, opts.health, opts.max_health)
+    end
+
+    if opts.name then
+        local tw = draw.GetTextSize(name_str, TEXT_SIZE)
+        draw.Text(bounds.x + (bounds.w - tw) * 0.5, bounds.y - TEXT_SIZE - 4, name_str, opts.name_color, TEXT_SIZE)
+    end
+
+    local below_y = bounds.y + bounds.h + 4
+
+    if opts.held_item then
+        local tw = draw.GetTextSize(opts.held_item, TEXT_SIZE)
+        draw.Text(bounds.x + (bounds.w - tw) * 0.5, below_y, opts.held_item, opts.held_item_color, TEXT_SIZE)
+        below_y = below_y + TEXT_SIZE + 2
+    end
+
+    if opts.dist then
+        local dist_str = string.format("%dm", math.floor(dist_val))
+        local tw = draw.GetTextSize(dist_str, TEXT_SIZE)
+        draw.Text(bounds.x + (bounds.w - tw) * 0.5, below_y, dist_str, opts.dist_color, TEXT_SIZE)
+    end
+end
+
+local LOOT_MARKER_RADIUS = 3
+local LOOT_MARKER_GAP = 8
+
+local function draw_loot_label(x, y, display_name, locked, dist, show_dist, color, dist_pos, show_marker, text_size)
+    local name_text = display_name
+    if locked then
+        name_text = name_text .. " [Locked]"
+    end
+
+    local dist_text = nil
+    if show_dist then
+        dist_text = string.format("%dm", math.floor(dist))
+        if dist_pos == 0 then
+            name_text = name_text .. " [" .. dist_text .. "]"
+            dist_text = nil
+        end
+    end
+
+    local name_w = draw.GetTextSize(name_text, text_size)
+    local name_x = x - name_w * 0.5
+    local name_y = y - text_size * 0.5
+
+    if show_marker then
+        draw.CircleFilled(x, name_y - LOOT_MARKER_GAP, LOOT_MARKER_RADIUS, color, 12)
+    end
+
+    if dist_text then
+        local dist_w = draw.GetTextSize(dist_text, text_size)
+        if dist_pos == 1 then
+            draw.Text(x - dist_w * 0.5, name_y + text_size + 2, dist_text, color, text_size)
+        elseif dist_pos == 2 then
+            draw.Text(name_x - dist_w - 4, name_y, dist_text, color, text_size)
+        elseif dist_pos == 3 then
+            draw.Text(name_x + name_w + 4, name_y, dist_text, color, text_size)
+        end
+    end
+
+    draw.Text(name_x, name_y, name_text, color, text_size)
+end
+
+local function get_held_item_name(ent)
+    local model_children = ent.model:GetChildren()
+    if model_children then
+        for i = 1, #model_children do
+            local child = model_children[i]
+            if child.ClassName == "Tool" then
+                return child.Name
+            end
+        end
+    end
+
+    for _, part in pairs(ent.parts) do
+        local children = part:GetChildren()
+        if children then
+            for i = 1, #children do
+                local child = children[i]
+                if child.ClassName == "Model" and child:FindFirstChild("Handle") then
+                    return child.Name
+                end
+            end
+        end
+    end
+
+    return nil
+end
+
+local function run_entity_visuals(cam_pos)
+    if not menu.Get("havoc_entity_enabled") then return end
+
+    local opts = {
+        box = menu.Get("havoc_entity_box"),
+        box_color = menu.GetColor("havoc_entity_box"),
+        name = menu.Get("havoc_entity_name"),
+        name_color = menu.GetColor("havoc_entity_name"),
+        dist = menu.Get("havoc_entity_distance"),
+        dist_color = menu.GetColor("havoc_entity_distance"),
+        health_bar = menu.Get("havoc_entity_health_bar"),
+        health_text = menu.Get("havoc_entity_health_text"),
+        health_text_color = menu.GetColor("havoc_entity_health_text"),
+    }
+
+    local chams_on = menu.Get("havoc_entity_chams")
+    local chams_color = menu.GetColor("havoc_entity_chams")
+    local skeleton_on = menu.Get("havoc_entity_skeleton")
+    local skeleton_color = menu.GetColor("havoc_entity_skeleton")
+    local held_item_on = menu.Get("havoc_entity_held_item")
+    local held_item_color = menu.GetColor("havoc_entity_held_item")
+
+    local hide_dead = menu.Get("havoc_entity_hide_dead")
+    local max_dist = menu.Get("havoc_entity_max_distance")
+
+    for i = 1, #entity_cache do
+        local ent = entity_cache[i]
+
+        local health = ent.humanoid.Health or 0
+        local max_health = ent.humanoid.MaxHealth or 100
+
+        if not (hide_dead and health <= 0) then
+            local root_pos = ent.root.Position
+            if root_pos then
+                local dist = (cam_pos - root_pos).Magnitude
+                if dist <= max_dist then
+                    local part_pos = {}
+                    for name, part in pairs(ent.parts) do
+                        local pos = part.Position
+                        if pos then part_pos[name] = pos end
+                    end
+
+                    if chams_on then draw_entity_chams(part_pos, ent.part_size, chams_color) end
+                    if skeleton_on then draw_entity_skeleton(part_pos, skeleton_color) end
+
+                    local bounds = get_entity_bounds(part_pos, ent.part_size, root_pos)
+                    if bounds.valid then
+                        local name_str = ent.model.Name
+                        if opts.health_text then
+                            name_str = name_str .. string.format(" [%d/%d]", math.max(0, math.floor(health)), math.floor(max_health))
+                        end
+
+                        opts.health = health
+                        opts.max_health = max_health
+                        opts.held_item = held_item_on and get_held_item_name(ent) or nil
+                        opts.held_item_color = held_item_color
+
+                        draw_esp(bounds, name_str, dist, opts)
+                    end
+                end
+            end
+        end
+    end
+end
+
+local function loot_passes_filter(filter_idx, is_open_val, is_locked_val)
+    if filter_idx == 1 then return is_locked_val == true end
+    if filter_idx == 2 then return is_locked_val ~= true end
+    if filter_idx == 3 then return is_open_val == true end
+    if filter_idx == 4 then return is_open_val ~= true end
+    return true
+end
+
+local function run_loot_visuals(cam_pos)
+    if not menu.Get("havoc_loot_enabled") then return end
+
+    local show_dist = menu.Get("havoc_loot_distance")
+    local dist_pos = menu.Get("havoc_loot_distance_pos")
+    local show_marker = menu.Get("havoc_loot_marker")
+    local max_dist = menu.Get("havoc_loot_max_distance")
+    local filter_idx = menu.Get("havoc_loot_filter")
+    local text_size = menu.Get("havoc_loot_text_size")
+
+    for i = 1, #loot_cache do
+        local loot = loot_cache[i]
+
+        if loot.pos and menu.Get(loot.category.key) then
+            if loot_passes_filter(filter_idx, loot.is_open, loot.is_locked) then
+                local dist = (cam_pos - loot.pos).Magnitude
+                if dist <= max_dist then
+                    local sx, sy, sok = utility.WorldToScreen(loot.pos.X, loot.pos.Y, loot.pos.Z)
+                    if sok then
+                        local color = menu.GetColor(loot.category.key)
+                        draw_loot_label(sx, sy, loot.category.display, loot.is_locked, dist, show_dist, color,
+                            dist_pos, show_marker, text_size)
+                    end
+                end
+            end
+        end
+    end
+end
+
+local function get_aim_part(ent, bone_idx)
+    if bone_idx == 0 then
+        return ent.parts["Head"] or ent.root
+    else
+        return ent.parts["Torso"] or ent.parts["UpperTorso"] or ent.root
+    end
+end
+
+local function evaluate_candidate(ent, bone_idx, cam_pos, max_dist)
+    local health = ent.humanoid.Health
+    if not (health and health > 0) then return nil end
+
+    local part = get_aim_part(ent, bone_idx)
+    if not part then return nil end
+
+    local pos = part.Position
+    if not pos then return nil end
+
+    local dist = (cam_pos - pos).Magnitude
+    if max_dist > 0 and dist > max_dist then return nil end
+
+    return pos, dist
+end
+
+local aimbot_prev_target = nil
+
+local aimbot_draw_state = { scx = nil, scy = nil, fov = 150, draw_fov = false, active = false, tx = 0, ty = 0 }
+
+local AIMBOT_ACQUIRE_INTERVAL = 0.05
+local aimbot_locked_ent = nil
+local aimbot_next_acquire = 0
+
+local function aimbot_tick()
+    local settings = {
+        fov = menu.Get("havoc_aimbot_fov"),
+        draw_fov = menu.Get("havoc_aimbot_draw_fov"),
+        bone_idx = menu.Get("havoc_aimbot_bone"),
+        target_type = menu.Get("havoc_aimbot_target_type"),
+        max_dist = menu.Get("havoc_aimbot_max_distance"),
+    }
+
+    local scx, scy = input.GetScreenCenter()
+
+    aimbot_draw_state.scx = scx
+    aimbot_draw_state.scy = scy
+    aimbot_draw_state.fov = settings.fov
+    aimbot_draw_state.draw_fov = settings.draw_fov
+
+    local key = menu.GetKey("havoc_aimbot_enabled")
+    if key == 0 then key = 2 end
+
+    local now = utility.GetTime()
+
+    local cam_pos = camera.GetPosition()
+
+    local best_pos, best_model = nil, nil
+
+    if aimbot_locked_ent and now < aimbot_next_acquire then
+        local pos = evaluate_candidate(aimbot_locked_ent, settings.bone_idx, cam_pos, settings.max_dist)
+        if pos then
+            local sx, sy, svis = utility.WorldToScreen(pos.X, pos.Y, pos.Z)
+            if svis then
+                best_pos = pos
+                best_model = aimbot_locked_ent.model
+            end
+        end
+    end
+
+    if not best_pos then
+        aimbot_next_acquire = now + AIMBOT_ACQUIRE_INTERVAL
+
+        local best_score = math.huge
+        local best_ent = nil
+
+        for i = 1, #entity_cache do
+            local ent = entity_cache[i]
+            local pos, dist = evaluate_candidate(ent, settings.bone_idx, cam_pos, settings.max_dist)
+            if pos then
+                local sx, sy, svis = utility.WorldToScreen(pos.X, pos.Y, pos.Z)
+                if svis then
+                    local dx, dy = sx - scx, sy - scy
+                    local px_dist = math.sqrt(dx * dx + dy * dy)
+                    local is_incumbent = ent.model == aimbot_prev_target
+                    local effective_fov = is_incumbent and (settings.fov * 1.15) or settings.fov
+                    if px_dist <= effective_fov then
+                        local score = (settings.target_type == 1) and dist or px_dist
+                        local effective_score = is_incumbent and (score * 0.75) or score
+                        if effective_score < best_score then
+                            best_score = effective_score
+                            best_pos = pos
+                            best_model = ent.model
+                            best_ent = ent
+                        end
+                    end
+                end
+            end
+        end
+
+        aimbot_locked_ent = best_ent
+    end
+
+    aimbot_prev_target = best_model
+
+    if best_pos then
+        local fx, fy, fvis = utility.WorldToScreen(best_pos.X, best_pos.Y, best_pos.Z)
+        if fvis then
+            aimbot_draw_state.active = true
+            aimbot_draw_state.tx = fx
+            aimbot_draw_state.ty = fy
+        else
+            aimbot_draw_state.active = false
+        end
+
+        local aim_part = get_aim_part(aimbot_locked_ent, settings.bone_idx)
+        camera.TrackTarget(aim_part, aimbot_locked_ent.humanoid, key, settings.max_dist)
+    else
+        aimbot_draw_state.active = false
+        camera.StopTracking()
+    end
+end
+
+local function draw_aimbot_visuals()
+    if not menu.Get("havoc_aimbot_enabled") then return end
+    if aimbot_draw_state.scx == nil then return end
+
+    if aimbot_draw_state.draw_fov then
+        draw.Circle(aimbot_draw_state.scx, aimbot_draw_state.scy, aimbot_draw_state.fov,
+            menu.GetColor("havoc_aimbot_draw_fov"), 48)
+    end
+
+    if aimbot_draw_state.active and menu.Get("havoc_aimbot_target_line") then
+        draw.Line(aimbot_draw_state.scx, aimbot_draw_state.scy, aimbot_draw_state.tx, aimbot_draw_state.ty,
+            menu.GetColor("havoc_aimbot_target_line"))
+    end
+end
+
+local aimbot_tick_counter = 0
+local AIMBOT_TICK_INTERVAL = 2
+
+function OnFrame()
+    refresh_entity_cache()
+    refresh_loot_cache()
+    refresh_loot_live()
+    
+    local cam_pos = camera.GetPosition()
+
+    run_entity_visuals(cam_pos)
+    run_loot_visuals(cam_pos)
+    draw_aimbot_visuals()
+
+    local aimbot_enabled = menu.Get("havoc_aimbot_enabled")
+    if aimbot_enabled then
+        aimbot_tick_counter = aimbot_tick_counter + 1
+        if aimbot_tick_counter >= AIMBOT_TICK_INTERVAL then
+            aimbot_tick_counter = 0
+            aimbot_tick()
+        end
+    else
+        aimbot_tick_counter = 0
+        aimbot_prev_target = nil
+        aimbot_locked_ent = nil
+        aimbot_draw_state.scx = nil
+        aimbot_draw_state.active = false
+        camera.StopTracking()
+    end
+end
