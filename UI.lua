@@ -5,7 +5,7 @@ local HttpService = game:GetService("HttpService")
 local Camera      = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
-local DEBUG = false
+local DEBUG = false   -- set true for console logs
 
 local DEF = {
     havoc_esp_enabled     = true,
@@ -18,9 +18,11 @@ local DEF = {
     havoc_nofog           = false,
 }
 
--- Aimbot settings
+-- Aimbot defaults
 local AIM_DEF = {
     enabled   = false,
+    key       = 0x02,          -- RMB by default
+    key_type  = "hold",
     fov       = 180,
     smooth    = 6.0,
     hitbox    = 0,             -- 0=Head, 1=Torso, 2=Nearest
@@ -49,7 +51,7 @@ local function uiColor(key, fallback)
     return fallback
 end
 
--- ===== FOG OFFSETS =====
+-- ===== FOG OFFSETS (unchanged) =====
 local _off = {}
 pcall(function()
     local res = game:HttpGet("https://offsets.imtheo.lol/Offsets.json")
@@ -302,6 +304,21 @@ end
 
 -- ========== AIMBOT FUNCTIONS ==========
 
+-- Returns true if the given model belongs to a real player
+local function isPlayerCharacter(model)
+    if not model then return false end
+    -- Check via Players service
+    local player = Players:GetPlayerFromCharacter(model)
+    if player then return true end
+    -- Also check by name (fallback)
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p.Name == model.Name then
+            return true
+        end
+    end
+    return false
+end
+
 local function getBestTarget()
     local cam = Camera
     if not cam then return nil end
@@ -320,37 +337,45 @@ local function getBestTarget()
 
     for _, entry in ipairs(all) do
         local rootPart = entry.hrp
-        if rootPart then
-            local ok, rootPos = pcall(function() return rootPart.Position end)
-            if ok and rootPos then
-                local dist = (camPos - rootPos).Magnitude
-                if dist <= maxDist then
-                    local aimPos = rootPos
-                    if hitboxMode == 0 then
-                        aimPos = rootPos + Vector3.new(0, 2.6, 0)
-                    end
+        if not rootPart then
+            goto continue
+        end
+        -- Skip if this is a player character (we only want NPCs)
+        if isPlayerCharacter(entry.model) then
+            if DEBUG then print("[Aimbot] Skipping player:", entry.model.Name) end
+            goto continue
+        end
 
-                    local dirToTarget = (aimPos - camPos).Unit
-                    local dot = lookDir:Dot(dirToTarget)
-                    local clamped = math.max(-1, math.min(1, dot))
-                    local angle = math.deg(math.acos(clamped))
+        local ok, rootPos = pcall(function() return rootPart.Position end)
+        if ok and rootPos then
+            local dist = (camPos - rootPos).Magnitude
+            if dist <= maxDist then
+                local aimPos = rootPos
+                if hitboxMode == 0 then
+                    aimPos = rootPos + Vector3.new(0, 2.6, 0)
+                end
 
-                    if angle <= fovDeg then
-                        if angle < bestAngle then
-                            bestAngle = angle
-                            best = {
-                                position = aimPos,
-                                rootPos = rootPos,
-                                part = rootPart,
-                                model = entry.model,
-                                distance = dist,
-                                angle = angle
-                            }
-                        end
+                local dirToTarget = (aimPos - camPos).Unit
+                local dot = lookDir:Dot(dirToTarget)
+                local clamped = math.max(-1, math.min(1, dot))
+                local angle = math.deg(math.acos(clamped))
+
+                if angle <= fovDeg then
+                    if angle < bestAngle then
+                        bestAngle = angle
+                        best = {
+                            position = aimPos,
+                            rootPos = rootPos,
+                            part = rootPart,
+                            model = entry.model,
+                            distance = dist,
+                            angle = angle
+                        }
                     end
                 end
             end
         end
+        ::continue::
     end
 
     if DEBUG and best then
@@ -383,6 +408,8 @@ end
 
 -- ========== UI CREATION ==========
 
+local aimKey = nil   -- store the keybind widget
+
 if typeof(UI) == "table" and UI.AddTab then
     UI.AddTab("HAVOC ESP", function(tab)
         local sec = tab:Section("AI ESP", "Left", nil, 260)
@@ -395,20 +422,15 @@ if typeof(UI) == "table" and UI.AddTab then
         sec:SliderInt("havoc_esp_update_rate", "Update Rate (fps)",  5,   60, DEF.havoc_esp_update_rate)
         sec:ColorPicker("havoc_esp_boxcol", "Box Color", 255 / 255, 80 / 255, 80 / 255)
 
+        -- Aimbot section
         local aim = tab:Section("Aimbot", "Left", nil, 260)
         aim:Toggle("aim_enabled", "Enabled", AIM_DEF.enabled)
+        aimKey = aim:Keybind("aim_key", AIM_DEF.key, AIM_DEF.key_type)
+        aimKey:AddToHotkey("Aimbot", "aim_enabled")
         aim:SliderInt("aim_fov", "Field of View (deg)", 1, 360, AIM_DEF.fov)
         aim:SliderFloat("aim_smooth", "Smoothing", 0.1, 20.0, AIM_DEF.smooth, "%.1f")
         aim:Combo("aim_hitbox", "Hitbox", {"Head", "Torso", "Nearest"}, AIM_DEF.hitbox)
         aim:SliderInt("aim_dist_max", "Max Aim Range", 50, 3000, AIM_DEF.dist_max)
-
-        aim:Button("Reset Aimbot", function()
-            UI.SetValue("aim_enabled", false)
-            UI.SetValue("aim_fov", 180)
-            UI.SetValue("aim_smooth", 6.0)
-            UI.SetValue("aim_hitbox", 0)
-            UI.SetValue("aim_dist_max", 1500)
-        end)
 
         local vis = tab:Section("Visuals", "Right", nil, 260)
         vis:Toggle("havoc_nofog", "No Fog", DEF.havoc_nofog)
@@ -533,9 +555,9 @@ renderConn = RunService.RenderStepped:Connect(function()
         lastDrawn = 0
     end
 
-    -- Aimbot (activates with RMB or F key)
+    -- Aimbot (uses UI keybind)
     local aimEnabled = uiGet("aim_enabled", false)
-    local keyActive = ismouse2pressed() or iskeypressed(0x46)  -- RMB or F
+    local keyActive = aimKey and aimKey:IsEnabled()
 
     if aimEnabled and keyActive then
         local smoothVal = uiGet("aim_smooth", 6.0)
