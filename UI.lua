@@ -296,6 +296,13 @@ local function getCharacters()
     if folder then
         collectFrom(folder, LocalPlayer and LocalPlayer.Character, playerNames, out, 0)
     end
+    
+    -- Sync with Workspace.Ignored.Gibs folder for NPC structures
+    local gibs = workspace:FindFirstChild("Ignored") and workspace.Ignored:FindFirstChild("Gibs")
+    if gibs then
+        collectFrom(gibs, LocalPlayer and LocalPlayer.Character, playerNames, out, 0)
+    end
+
     charCache = out
     return out
 end
@@ -383,7 +390,6 @@ local function getBestAimTarget()
     for _, it in ipairs(espItems) do
         local basePart = it.part
         if basePart and basePart.Parent then
-            -- Target standard body parts dynamically (Head -> Torso -> HRP fallback)
             local targetPart = basePart.Parent:FindFirstChild("Head") 
                 or basePart.Parent:FindFirstChild("UpperTorso") 
                 or basePart.Parent:FindFirstChild("Torso") 
@@ -421,18 +427,26 @@ local function aimAtTarget(target, smoothFactor)
     local screenPos, onScreen = worldToScreen(target.position)
     if not onScreen then return end
 
-    -- Fetch absolute current physical cursor position using native UserInputService
-    local mousePos = UserInputService:GetMouseLocation()
+    -- Fetch viewport boundaries to target the physical center
+    local vp = Camera.ViewportSize
+    local center = Vector2.new(vp.X / 2, vp.Y / 2)
     local targetScreen = Vector2.new(screenPos.X, screenPos.Y)
 
-    -- Interpolate physical positions seamlessly inside Roblox viewport coords
-    local newPos = mousePos:Lerp(targetScreen, smoothFactor)
-    if mousemoveabs then
-        mousemoveabs(math.floor(newPos.X), math.floor(newPos.Y))
+    -- Calculate physical relative distance off-center
+    local delta = (targetScreen - center)
+
+    if mousemoverel then
+        -- Apply smooth factor transitions relatively 
+        local moveX = delta.X * smoothFactor
+        local moveY = delta.Y * smoothFactor
+
+        -- Eliminate tiny micro-movements to avoid shaking
+        if math.abs(moveX) > 0.5 or math.abs(moveY) > 0.5 then
+            mousemoverel(math.round(moveX), math.round(moveY))
+        end
     end
 end
 
--- Native physical check for the hotkey using Matcha API documentation
 local function checkHotkeyActive()
     local key = uiGet("aim_key", AIM_DEF.key)
     if key == 0x01 then
@@ -524,7 +538,6 @@ renderConn = RunService.RenderStepped:Connect(function()
     for i = slot + 1, lastDrawn do hideSlot(slots[i]) end
     lastDrawn = slot
 
-    -- Execution checking native background activity rules 
     local aimEnabled = uiGet("aim_enabled", false)
     local keyActive = checkHotkeyActive()
     local isForeground = (isrbxactive == nil) or isrbxactive()
