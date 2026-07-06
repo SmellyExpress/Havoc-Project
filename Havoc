@@ -225,41 +225,13 @@ local function refresh_loot_live()
 end
 
 -- ============================================================================
--- Drawing Cache Pool
--- ============================================================================
-
-local draw_pool = {}
-local pool_index = 1
-
-local function get_draw_obj(type_str)
-	if not draw_pool[pool_index] then
-		draw_pool[pool_index] = Drawing.new(type_str)
-	elseif draw_pool[pool_index].ClassName ~= type_str then
-		draw_pool[pool_index]:Remove()
-		draw_pool[pool_index] = Drawing.new(type_str)
-	end
-	
-	local obj = draw_pool[pool_index]
-	pool_index = pool_index + 1
-	return obj
-end
-
-local function reset_draw_pool()
-	for i = pool_index, #draw_pool do
-		draw_pool[i].Visible = false
-	end
-	pool_index = 1
-end
-
--- ============================================================================
 -- Loot Drawing
 -- ============================================================================
 
 local LOOT_MARKER_RADIUS = 3
 local LOOT_MARKER_GAP = 8
 
-local function draw_loot_label(x, y, display_name, locked, dist, show_dist, rgb_table, dist_pos, show_marker, text_size)
-	local color = Color3.new(rgb_table[1], rgb_table[2], rgb_table[3])
+local function draw_loot_label(x, y, display_name, locked, dist, show_dist, color, dist_pos, show_marker, text_size)
 	local name_text = display_name
 	if locked then
 		name_text = name_text .. " [Locked]"
@@ -274,48 +246,29 @@ local function draw_loot_label(x, y, display_name, locked, dist, show_dist, rgb_
 		end
 	end
 
-	local name_w = #name_text * (text_size * 0.6)
+	local name_w = draw.GetTextSize(name_text, text_size)
 	local name_x = x - name_w * 0.5
 	local name_y = y - text_size * 0.5
 
 	if show_marker then
-		local marker = get_draw_obj("Circle")
-		marker.Filled = true
-		marker.Radius = LOOT_MARKER_RADIUS
-		marker.Color = color
-		marker.Position = Vector2.new(x, name_y - LOOT_MARKER_GAP)
-		marker.Visible = true
+		draw.CircleFilled(x, name_y - LOOT_MARKER_GAP, LOOT_MARKER_RADIUS, color, 12)
 	end
 
 	if dist_text then
-		local dist_w = #dist_text * (text_size * 0.6)
-		local dist_obj = get_draw_obj("Text")
-		dist_obj.Text = dist_text
-		dist_obj.Color = color
-		dist_obj.FontSize = text_size
-		dist_obj.Font = Drawing.Fonts.UI
-		
+		local dist_w = draw.GetTextSize(dist_text, text_size)
 		if dist_pos == 1 then
-			dist_obj.Position = Vector2.new(x - dist_w * 0.5, name_y + text_size + 2)
+			draw.Text(x - dist_w * 0.5, name_y + text_size + 2, dist_text, color, text_size)
 		elseif dist_pos == 2 then
-			dist_obj.Position = Vector2.new(name_x - dist_w - 4, name_y)
+			draw.Text(name_x - dist_w - 4, name_y, dist_text, color, text_size)
 		elseif dist_pos == 3 then
-			dist_obj.Position = Vector2.new(name_x + name_w + 4, name_y)
+			draw.Text(name_x + name_w + 4, name_y, dist_text, color, text_size)
 		end
-		dist_obj.Visible = true
 	end
 
-	local main_text = get_draw_obj("Text")
-	main_text.Text = name_text
-	main_text.Color = color
-	main_text.FontSize = text_size
-	main_text.Font = Drawing.Fonts.UI
-	main_text.Position = Vector2.new(name_x, name_y)
-	main_text.Visible = true
+	draw.Text(name_x, name_y, name_text, color, text_size)
 end
 
 local function loot_passes_filter(filter_idx, is_open_val, is_locked_val)
-	if filter_idx == 0 then return true end
 	if filter_idx == 1 then return is_locked_val == true end
 	if filter_idx == 2 then return is_locked_val ~= true end
 	if filter_idx == 3 then return is_open_val == true end
@@ -340,10 +293,10 @@ local function run_loot_visuals(cam_pos)
 			if loot_passes_filter(filter_idx, loot.is_open, loot.is_locked) then
 				local dist = (cam_pos - loot.pos).Magnitude
 				if dist <= max_dist then
-					local screen_pos, on_screen = Camera:WorldToViewportPoint(loot.pos)
-					if on_screen then
+					local sx, sy, sok = WorldToScreen(loot.pos)
+					if sok then
 						local color = loot.category.color
-						draw_loot_label(screen_pos.X, screen_pos.Y, loot.category.display, loot.is_locked, dist, show_dist, color,
+						draw_loot_label(sx, sy, loot.category.display, loot.is_locked, dist, show_dist, color,
 							dist_pos, show_marker, text_size)
 					end
 				end
@@ -353,79 +306,14 @@ local function run_loot_visuals(cam_pos)
 end
 
 -- ============================================================================
--- Weapon Mods Setup & Execution
--- ============================================================================
-
-local Spread_Zero = {
-	y = {[1] = 0, [2] = 0, [3] = 0},
-	x = {[1] = 0, [2] = 0, [3] = 0},
-	z = {[1] = 0, [2] = 0, [3] = 0},
-}
-
-local Keys = {
-	"vPunchBase", 
-	"hPunchBase", 
-	"vel", 
-	"spreadReduce", 
-	"spread", 
-	"weight",
-	"unAimWeight",
-	"aimWeight",
-}
-
-local last_weapon_mod_tick = 0
-
-local function process_weapon_mods()
-	local now = os.clock()
-	if now - last_weapon_mod_tick < 0.5 then return end
-	last_weapon_mod_tick = now
-
-	local success, cache = pcall(function() return getgc(Keys) end)
-	if not success or not cache then return end
-
-	local norecoil  = UI.GetValue("havoc_no_recoil")
-	local nospread  = UI.GetValue("havoc_no_spread")
-	local nosway    = UI.GetValue("havoc_no_sway")
-	local fastvel   = UI.GetValue("havoc_fast_vel")
-
-	local mods = {}
-	
-	if norecoil then
-		mods.vPunchBase = 0
-		mods.hPunchBase = 0
-	end
-	
-	if nospread then
-		mods.spreadReduce = 100
-		mods.spread = Spread_Zero
-	end
-	
-	if nosway then
-		mods.weight = 0
-		mods.aimWeight = 0
-		mods.unAimWeight = 0
-	end
-	
-	if fastvel then
-		mods.vel = 100000
-	end
-
-	if norecoil or nospread or nosway or fastvel then
-		pcall(function()
-			applygc(cache, mods)
-		end)
-	end
-end
-
--- ============================================================================
--- UI Setup (Safe structure for frame loops)
+-- UI Setup
 -- ============================================================================
 
 if UI and UI.AddTab then
 	pcall(function()
 		UI.AddTab("Havoc ESP", function(tab)
-			-- Corrected tab signatures (removed raw nil and isolated allocations)
-			local loot_sec = tab:Section("Loot Visuals", "Left")
+			-- Loot Visuals Section
+			local loot_sec = tab:Section("Loot Visuals", "Left", nil, 400)
 			loot_sec:Toggle("havoc_loot_enabled", "Enable Loot Visuals", true)
 			loot_sec:SliderInt("havoc_loot_text_size", "Text Size", 1, 20, 13)
 			
@@ -436,13 +324,15 @@ if UI and UI.AddTab then
 			loot_sec:Toggle(LOOT_FALLBACK.key, "Enable " .. LOOT_FALLBACK.display, true)
 			loot_sec:Toggle(BODY_BAG_TYPE.key, "Enable " .. BODY_BAG_TYPE.display, true)
 			
-			local loot_opts = tab:Section("Loot Options", "Right")
+			-- Loot Options Section
+			local loot_opts = tab:Section("Loot Options", "Right", nil, 400)
 			loot_opts:Toggle("havoc_loot_distance", "Show Distance", true)
 			loot_opts:Combo("havoc_loot_distance_pos", "Distance Position", {"Same Line", "Below Name", "Left Of Name", "Right Of Name"}, 0)
 			loot_opts:Toggle("havoc_loot_marker", "Show Position Marker", true)
 			loot_opts:Combo("havoc_loot_filter", "Loot Filter", {"Show All", "Show Locked Only", "Show Unlocked Only", "Show Opened Only", "Show Unopened Only"}, 0)
 			loot_opts:SliderInt("havoc_loot_max_distance", "Max Render Distance", 0, 5000, 5000)
 			
+			-- Weapon Mods Section
 			local weapon_sec = tab:Section("Weapon Mods", "Left")
 			weapon_sec:Toggle("havoc_no_recoil", "Enable No Recoil", false)
 			weapon_sec:Toggle("havoc_no_spread", "Enable No Spread", false)
@@ -453,6 +343,56 @@ if UI and UI.AddTab then
 end
 
 -- ============================================================================
+-- Weapon Modifications Implementation
+-- ============================================================================
+
+local Spread = {
+    y = {[1] = 0, [2] = 0, [3] = 0},
+    x = {[1] = 0, [2] = 0, [3] = 0},
+    z = {[1] = 0, [2] = 0, [3] = 0},
+}
+
+local Keys = {
+    "vPunchBase", 
+    "hPunchBase", 
+    "vel", 
+    "spreadReduce", 
+    "spread", 
+    "weight",
+    "unAimWeight",
+    "aimWeight",
+}
+
+local function update_weapon_mods()
+    local Cache = getgc(Keys)
+    if not Cache then return end
+
+    -- Check UI Toggle States
+    local no_recoil = UI.GetValue("havoc_no_recoil")
+    local no_spread = UI.GetValue("havoc_no_spread")
+    local no_sway   = UI.GetValue("havoc_no_sway")
+    local fast_vel  = UI.GetValue("havoc_fast_vel")
+
+    applygc(Cache, {
+        -- Recoil
+        vPunchBase = no_recoil and 0 or nil, -- nil or standard game defaults if your applygc handles it
+        hPunchBase = no_recoil and 0 or nil,
+        
+        -- Spread
+        spreadReduce = no_spread and 100 or nil,
+        spread       = no_spread and Spread or nil,
+        
+        -- Velocity
+        vel          = fast_vel and 100000 or nil,
+        
+        -- Sway / Weight
+        weight       = no_sway and 0 or nil,
+        aimWeight    = no_sway and 0 or nil,
+        unAimWeight  = no_sway and 0 or nil,
+    })
+end
+
+-- ============================================================================
 -- Main Loop
 -- ============================================================================
 
@@ -460,13 +400,13 @@ local function main_loop()
 	refresh_loot_cache()
 	refresh_loot_live()
 
-	process_weapon_mods()
-	reset_draw_pool()
-
 	local cam_pos = Camera.Position
 	run_loot_visuals(cam_pos)
+	
+	-- Apply gun mods every cycle
+	pcall(update_weapon_mods)
 end
 
 RunService.RenderStepped:Connect(main_loop)
 
-print("[HAVOC ESP] System successfully initialized with Matcha Framework adjustments!")
+print("[HAVOC ESP] Loot visuals and weapon mods system loaded!")
