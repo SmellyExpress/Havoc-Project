@@ -1,4 +1,6 @@
+-- ============================================================================
 -- Loot Configuration
+-- ============================================================================
 
 local LOOT_TYPES = {
 	{ key = "loot_medium_crate", match = "Medium Wooden Crate", display = "Medium Wooden Crate", color = { 0.62, 0.44, 0.24, 1.0 } },
@@ -7,7 +9,34 @@ local LOOT_TYPES = {
 	{ key = "loot_wooden_crate", match = "Wooden Crate", display = "Wooden Crate", color = { 0.55, 0.4, 0.25, 1.0 } },
 	{ key = "loot_weapon_locker", match = "Weapon Locker", display = "Weapon Locker", color = { 1.0, 0.4, 0.2, 1.0 } },
 	{ key = "loot_weapon_box", match = "Weapon Box", display = "Weapon Box", color = { 1.0, 0.35, 0.25, 1.0 } },
+	{ key = "loot_rifle_case", match = "Rifle Case", display = "Rifle Case", color = { 1.0, 0.5, 0.3, 1.0 } },
+	{ key = "loot_pistol_case", match = "Pistol Case", display = "Pistol Case", color = { 1.0, 0.45, 0.3, 1.0 } },
+	{ key = "loot_small_case", match = "Small Case", display = "Small Case", color = { 0.9, 0.6, 0.4, 1.0 } },
+	{ key = "loot_ammunition_box", match = "Ammunition Box", display = "Ammunition Box", color = { 0.3, 0.75, 1.0, 1.0 } },
+	{ key = "loot_technical_shelf", match = "Technical Shelf", display = "Technical Shelf", color = { 0.35, 0.7, 0.9, 1.0 } },
+	{ key = "loot_tool_shelf", match = "Tool Shelf", display = "Tool Shelf", color = { 0.4, 0.68, 0.88, 1.0 } },
+	{ key = "loot_toolbox", match = "Toolbox", display = "Toolbox", color = { 0.4, 0.65, 0.85, 1.0 } },
 	{ key = "loot_medical_box", match = "Medical Box", display = "Medical Box", color = { 0.9, 0.2, 0.2, 1.0 } },
+	{ key = "loot_safe", match = "Safe", display = "Safe", color = { 1.0, 0.85, 0.2, 1.0 } },
+	{ key = "loot_cabinet", match = "Cabinet", display = "Cabinet", color = { 0.9, 0.75, 0.3, 1.0 } },
+	{ key = "loot_cash_register", match = "Cash Register", display = "Cash Register", color = { 1.0, 0.8, 0.1, 1.0 } },
+	{ key = "loot_duffel_bag", match = "Duffel Bag", display = "Duffel Bag", color = { 0.85, 0.7, 0.35, 1.0 } },
+	{ key = "loot_backpack", match = "backpack", display = "Backpack", color = { 0.8, 0.65, 0.3, 1.0 } },
+	{ key = "loot_closet", match = "Closet", display = "Closet", color = { 0.6, 0.6, 0.65, 1.0 } },
+	{ key = "loot_computer", match = "Computer", display = "Computer", color = { 0.3, 0.9, 0.9, 1.0 } },
+	{ key = "loot_server_unit", match = "Server Unit", display = "Server Unit", color = { 0.25, 0.8, 0.95, 1.0 } },
+	{ key = "loot_powerbox", match = "PowerBox", display = "Power Box", color = { 0.9, 0.85, 0.2, 1.0 } },
+	{ key = "loot_standing_atm", match = "StandingATM", display = "ATM", color = { 0.2, 0.9, 0.5, 1.0 } },
+	{ key = "loot_locker", match = "Locker", display = "Locker", color = { 0.55, 0.55, 0.6, 1.0 } },
+	{ key = "loot_tall_fridge", match = "Tall Fridge", display = "Tall Fridge", color = { 0.7, 0.85, 0.9, 1.0 } },
+	{ key = "loot_fridge", match = "Fridge", display = "Fridge", color = { 0.75, 0.88, 0.92, 1.0 } },
+	{ key = "loot_stove", match = "Stove", display = "Stove", color = { 0.5, 0.5, 0.5, 1.0 } },
+	{ key = "loot_washing_machine", match = "Washing Machine", display = "Washing Machine", color = { 0.65, 0.75, 0.85, 1.0 } },
+	{ key = "loot_dishwasher", match = "Dishwasher", display = "Dishwasher", color = { 0.6, 0.7, 0.8, 1.0 } },
+	{ key = "loot_envelope", match = "Envelope", display = "Envelope", color = { 0.9, 0.85, 0.7, 1.0 } },
+	{ key = "loot_explosive_barrel", match = "ExplosiveBarrel", display = "Explosive Barrel", color = { 1.0, 0.3, 0.0, 1.0 } },
+	{ key = "loot_door", match = { "WoodenDoor", "DoubleGlassDoor", "DoubleMetalDoor", "MetalDoor", "GarageDoorLock" },
+	  display = "Locked Door", color = { 0.5, 0.4, 0.3, 1.0 } },
 }
 local LOOT_FALLBACK = { key = "loot_other", display = "Other Loot", color = { 0.8, 0.8, 0.8, 1.0 } }
 local BODY_BAG_TYPE = { key = "loot_body_bag", display = "Body Bag", color = { 0.35, 0.35, 0.35, 1.0 } }
@@ -32,13 +61,38 @@ local function categorize_loot(name)
 	return LOOT_FALLBACK
 end
 
--- UI setup
+-- ============================================================================
+-- Config System
+-- ============================================================================
+
+local CONFIG = {
+	version = 1,
+	loot = {},
+	weapon_mods = {},
+}
+
+local function save_config()
+	-- Placeholder for config save functionality
+	-- In production this would write to a file or HTTP request
+	print("[HAVOC] Config saved")
+end
+
+local function load_config()
+	-- Placeholder for config load functionality
+	print("[HAVOC] Config loaded")
+end
+
+-- ============================================================================
+-- UI Setup (Matcha API)
+-- ============================================================================
 
 if UI and UI.AddTab then
 	pcall(function()
-		UI.AddTab("Havoc", function(tab)
+		UI.AddTab("Havoc ESP", function(tab)
+			-- Loot Visuals Section
 			local loot_sec = tab:Section("Loot Visuals", "Left", nil, 400)
 			loot_sec:Toggle("havoc_loot_enabled", "Enable Loot Visuals", true)
+			loot_sec:SliderInt("havoc_loot_text_size", "Text Size", 1, 20, 13)
 			
 			for i = 1, #LOOT_TYPES do
 				local entry = LOOT_TYPES[i]
@@ -47,12 +101,31 @@ if UI and UI.AddTab then
 			loot_sec:Toggle(LOOT_FALLBACK.key, "Enable " .. LOOT_FALLBACK.display, true)
 			loot_sec:Toggle(BODY_BAG_TYPE.key, "Enable " .. BODY_BAG_TYPE.display, true)
 			
-			local loot_opts = tab:Section("Loot Options", "Right")
+			-- Loot Options Section
+			local loot_opts = tab:Section("Loot Options", "Right", nil, 400)
 			loot_opts:Toggle("havoc_loot_distance", "Show Distance", true)
 			loot_opts:Combo("havoc_loot_distance_pos", "Distance Position", {"Same Line", "Below Name", "Left Of Name", "Right Of Name"}, 0)
 			loot_opts:Toggle("havoc_loot_marker", "Show Position Marker", true)
 			loot_opts:Combo("havoc_loot_filter", "Loot Filter", {"Show All", "Show Locked Only", "Show Unlocked Only", "Show Opened Only", "Show Unopened Only"}, 0)
 			loot_opts:SliderInt("havoc_loot_max_distance", "Max Render Distance", 0, 5000, 5000)
+			
+			-- Weapon Mods Section
+			local weapon_sec = tab:Section("Weapon Mods", "Left")
+			weapon_sec:Toggle("havoc_no_recoil", "Enable No Recoil", false)
+			weapon_sec:Toggle("havoc_no_spread", "Enable No Spread", false)
+			weapon_sec:Toggle("havoc_no_sway", "Enable No Sway", false)
+			weapon_sec:Toggle("havoc_fast_vel", "Enable Fast Bullet Velocity", false)
+			
+			-- Config Section
+			local config_sec = tab:Section("Config", "Right")
+			config_sec:Button("Save Config", function()
+				save_config()
+			end)
+			config_sec:Button("Load Config", function()
+				load_config()
+			end)
 		end)
 	end)
 end
+
+print("[HAVOC ESP] UI loaded!")
